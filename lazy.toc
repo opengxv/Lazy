@@ -1,0 +1,15 @@
+## Interface: 11302
+## Version: 0.1
+## Title: Lazy
+## Author: storm
+## DefaultState: Enabled
+## SavedVariables: LazyDB
+## RequiredDeps: Duowan
+
+
+embeds.xml
+locale-zhCN.lua
+lazy.lua
+lib.lua
+marker.lua
+druid.lua
