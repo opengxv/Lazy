@@ -1,22 +1,187 @@
 ﻿#include <windows.h>
-#include <tchar.h>
 #include <stdio.h>
-#include <accctrl.h>
-#include <aclapi.h>
 #include <time.h>
-#include <tchar.h>
 #include "tesseract/baseapi.h"
 #include "leptonica/allheaders.h"
-#include <sys/cygwin.h>
-#include <WinNls.h>
 #include <iconv.h>
-
-#define KEY_SIZE sizeof(double)
-#define BUFFER_SIZE (4096 * 1)
+#include <getopt.h>
+#include <map>
+#include <string>
 
 HWND hWindow;
-#define BIT_COUNT 32
 
+#define BIT_COUNT 32
+#define MARK1 40320540000
+#define MARK2 40320550000
+
+const char* vk_strs[] = {
+	"CTRL-1",
+	"CTRL-2",
+	"CTRL-3",
+	"CTRL-4",
+	"CTRL-5",
+	"CTRL-6",
+	"CTRL-7",
+	"CTRL-8",
+	"CTRL-9",
+	"CTRL-0",
+	"ALT-1",
+	"ALT-2",
+	"ALT-3",
+	"ALT-4",
+	"ALT-5",
+	"ALT-6",
+	"ALT-7",
+	"ALT-8",
+	"ALT-9",
+	"ALT-0",
+	"ALT-F1",
+	"ALT-F2",
+	"ALT-F3",
+	"ALT-F5",
+	"ALT-F6",
+	"ALT-F7",
+	"ALT-F8",
+	"ALT-F9",
+	"ALT-F10",
+	"ALT-F11",
+	"ALT-F12",
+	"CTRL-F1",
+	"CTRL-F2",
+	"CTRL-F3",
+	"CTRL-F4",
+	"CTRL-F5",
+	"CTRL-F6",
+	"CTRL-F7",
+	"CTRL-F8",
+	"CTRL-F9",
+	"CTRL-F10",
+	"CTRL-F11",
+	"CTRL-F12",
+	"ALT-CTRL-1",
+	"ALT-CTRL-2",
+	"ALT-CTRL-3",
+	"ALT-CTRL-4",
+	"ALT-CTRL-5",
+	"ALT-CTRL-6",
+	"ALT-CTRL-7",
+	"ALT-CTRL-8",
+	"ALT-CTRL-9",
+	"ALT-CTRL-0",
+	"ALT-CTRL-F1",
+	"ALT-CTRL-F2",
+	"ALT-CTRL-F3",
+	"ALT-CTRL-F5",
+	"ALT-CTRL-F6",
+	"ALT-CTRL-F7",
+	"ALT-CTRL-F8",
+	"ALT-CTRL-F9",
+	"ALT-CTRL-F10",
+	"ALT-CTRL-F11",
+	"ALT-CTRL-F12",
+	"SHIFT-CTRL-F1",
+	"SHIFT-CTRL-F2",
+	"SHIFT-CTRL-F3",
+	"SHIFT-CTRL-F5",
+	"SHIFT-CTRL-F6",
+	"SHIFT-CTRL-F7",
+	"SHIFT-CTRL-F8",
+	"SHIFT-CTRL-F9",
+	"SHIFT-CTRL-F10",
+	"SHIFT-CTRL-F11",
+	"SHIFT-CTRL-F12",
+	"SHIFT-ALT-F1",
+	"SHIFT-ALT-F2",
+	"SHIFT-ALT-F3",
+	"SHIFT-ALT-F5",
+	"SHIFT-ALT-F6",
+	"SHIFT-ALT-F7",
+	"SHIFT-ALT-F8",
+	"SHIFT-ALT-F9",
+	"SHIFT-ALT-F10",
+	"SHIFT-ALT-F11",
+	"SHIFT-ALT-F12",
+	"SHIFT-CTRL-1",
+	"SHIFT-CTRL-2",
+	"SHIFT-CTRL-3",
+	"SHIFT-CTRL-4",
+	"SHIFT-CTRL-5",
+	"SHIFT-CTRL-6",
+	"SHIFT-CTRL-7",
+	"SHIFT-CTRL-8",
+	"SHIFT-CTRL-9",
+	"SHIFT-CTRL-0"
+};
+
+std::map<std::string, int> vk_map = {
+	{"CTRL",	VK_CONTROL},
+	{"ALT",		VK_MENU},
+	{"SHIFT",	VK_SHIFT},
+	{"0",		0x30},
+	{"1",		0x31},
+	{"2",		0x32},
+	{"3",		0x33},
+	{"4",		0x34},
+	{"5",		0x35},
+	{"6",		0x36},
+	{"7",		0x37},
+	{"8",		0x38},
+	{"9",		0x39},
+	{"F1",		VK_F1},
+	{"F2",		VK_F2},
+	{"F3",		VK_F3},
+	{"F4",		VK_F4},
+	{"F5",		VK_F5},
+	{"F6",		VK_F6},
+	{"F7",		VK_F7},
+	{"F8",		VK_F8},
+	{"F9",		VK_F9},
+	{"F10",		VK_F10},
+	{"F11",		VK_F11},
+	{"F12",		VK_F12},
+};
+#define KEY_COUNT (sizeof(vk_strs) / sizeof(char*))
+struct keymap_t {
+	INPUT inputs[4];
+	unsigned count;
+};
+keymap_t keymaps[KEY_COUNT];
+
+void init_keymaps() {
+	char buf[255];
+	keymap_t *key = keymaps;
+	int ki;
+	for (int i = 0; i < KEY_COUNT; ++i, ++key) {
+		const char* str = vk_strs[i];
+		const char* p;
+		const char* org = str;
+		size_t n;
+
+		memset(key, 0, sizeof(keymap_t));
+		while (*org) {
+			p = strchr(org, '-');
+			if (p) {
+				n = p - org;
+				strncpy(buf, org, n);
+				org = p + 1;
+			}
+			else {
+				n = strlen(org);
+				strncpy(buf, org, n);
+				org += n;
+			}
+
+			if (n) {
+				buf[n] = '\0';
+				INPUT* input = &key->inputs[key->count++];
+				input->type = INPUT_KEYBOARD;
+				input->ki.dwFlags = (DWORD)0;
+				input->ki.wVk = (WORD)vk_map[buf];
+				input->ki.wScan = MapVirtualKey(input->ki.wVk, 0);
+			}
+		}
+	}
+}
 
 void ShowLastError() {
 	// Retrieve the system error message for the last-error code
@@ -49,14 +214,16 @@ private:
 	unsigned char* m_buffer;
 	unsigned m_size;
 	unsigned m_buffersize;
+	int m_x;
+	int m_y;
 	unsigned m_width;
 	unsigned m_height;
 	BITMAPFILEHEADER* m_header;
 	BITMAPINFOHEADER *m_bi;
 public:
-	Screen(HWND hwnd) 
+	Screen(HWND hwnd, int x, int y, unsigned width, unsigned height) 
 	: m_hwnd(hwnd), m_hdcWnd(), m_hbmWnd(), m_hdcMem(), m_bmpWnd(), m_buffer(),
-	  m_width(148), m_height(25) {
+	  m_x(x), m_y(y), m_width(width), m_height(height) {
 		assertWin32(m_hdcWnd = ::GetDC(hwnd));
 		assertWin32(m_hbmWnd = ::CreateCompatibleBitmap(m_hdcWnd, m_width, m_height));
 		assertWin32(m_hdcMem = ::CreateCompatibleDC(m_hdcWnd));
@@ -106,14 +273,14 @@ public:
 		}
 	}
 
-	PIX* get(unsigned x, unsigned y) {
-		assertWin32(::BitBlt(m_hdcMem, 0, 0, m_width, m_height, m_hdcWnd, x, y, SRCCOPY));
+	PIX* get() {
+		assertWin32(::BitBlt(m_hdcMem, 0, 0, m_width, m_height, m_hdcWnd, m_x, m_y, SRCCOPY));
 		assertWin32(::GetDIBits(m_hdcMem, m_hbmWnd, 0, m_height, m_bmp, (BITMAPINFO*)m_bi, DIB_RGB_COLORS));
 		return pixReadMemBmp(m_buffer, m_buffersize);
 	}
 
 	void save() {
-		FILE* fp = fopen("d:\\capture.bmp", "w");
+		FILE* fp = fopen("capture.bmp", "w");
 		fwrite(m_buffer, m_buffersize, 1, fp); 
 		fclose(fp);
 	}
@@ -138,20 +305,117 @@ unsigned long long get_time() {
 	return ((unsigned long long)tv.tv_sec * 1000 + (unsigned long long)tv.tv_usec / 1000);
 }
 
+void send_input(int32_t keyvalue, bool is_up) {
+	INPUT input;
+	memset(&input, 0, sizeof(INPUT));
+	input.type = INPUT_KEYBOARD;
+	input.ki.dwFlags = is_up ? KEYEVENTF_KEYUP : 0;
+	input.ki.wVk = (WORD)keyvalue;
+	input.ki.wScan = MapVirtualKey(keyvalue, 0);
+	SendInput(1, &input, sizeof(INPUT));
+}
+
+void send_key(unsigned event) {
+	if (event < 1) {
+		return;
+	}
+	event--;
+	if (event >= KEY_COUNT) {
+		return;
+	}
+
+	keymap_t* key = &keymaps[event];
+	for (int i = 0; i < key->count; i++) {
+		INPUT* input = &key->inputs[i];
+		input->ki.dwFlags = (DWORD)0;
+	}
+	SendInput(key->count, key->inputs, sizeof(INPUT));
+	Sleep(10);
+	for (int i = 0; i < key->count; i++) {
+		INPUT* input = &key->inputs[i];
+		input->ki.dwFlags = (DWORD)KEYEVENTF_KEYUP;
+	}
+	SendInput(key->count, key->inputs, sizeof(INPUT));
+	printf("%s\n", vk_strs[event]);
+}
+
+void handle_event(unsigned long long event) {
+	if (event < MARK1 || event > MARK2) {
+		return;
+	}
+	event -= MARK1;
+	event %= 100;
+
+	send_key(event);
+}
+
 int main(int argc, char **argv)
 {
-	unsigned long long mark1 = 40320540000;
-	unsigned long long mark2 = 40320550000;
-	unsigned width = GetSystemMetrics(SM_CXSCREEN);
-	unsigned height = GetSystemMetrics(SM_CYSCREEN);
-#if 0
-	unsigned x = atoi(argv[1]);
-	unsigned y = height - atoi(argv[2]);
-#else
-	unsigned x = 10;
-	unsigned y = height - 116;
-#endif
-	Screen screen(0);
+	int x = 10;
+	int y = -116;
+	unsigned width = 150;
+	unsigned height = 25;
+	bool storage = false;
+	bool capture = false;
+
+	FILE *f = fopen("watch.cfg", "r");
+	if (f) {
+		fscanf(f, "%d %d %u %u", &x, &y, &width, &height);
+		fclose(f);
+	}
+
+	int opt;
+	while ((opt = getopt(argc, argv, "csx:y:w:h:")) != -1) {
+		switch (opt) {
+		case 's':
+			storage = true;
+			break;
+		case 'c':
+			capture = true;
+			break;
+		case 'x':
+			x = atoi(optarg);
+			break;
+
+		case 'y':
+			y = atoi(optarg);
+			break;
+		case 'w':
+			width = atoi(optarg);
+			break;
+		case 'h':
+			height = atoi(optarg);
+			break;
+		default:
+			fprintf(stderr, "param error.\n");
+			return 0;
+		}
+	}
+
+	printf("x = %d, y = %d, w = %d, h = %d\n", x, y, width, height);
+	if (storage) {
+		f = fopen("watch.cfg", "w+");
+		if (f) {
+			fprintf(f, "%d %d %u %u\n", x, y, width, height);
+			fclose(f);
+		}
+		return 0;
+	}
+
+	init_keymaps();
+
+	int screen_height = GetSystemMetrics(SM_CYSCREEN);
+	y += screen_height;
+
+	Screen screen(0, x, y, width, height);
+	if (capture) {
+		Pix* pix = screen.get();
+		screen.save();
+		pixDestroy(&pix);
+		return 0;
+	}
+
+
 	char* out;
 	tesseract::TessBaseAPI* api = new tesseract::TessBaseAPI();
 	if (api->Init(NULL, "eng")) {
@@ -162,23 +426,22 @@ int main(int argc, char **argv)
 	unsigned long long old = 0;
 	while (1) {
 		unsigned long long t = get_time();
-		Pix *pix = screen.get(x, y);
+		Pix *pix = screen.get();
 		pix->xres = 70;
 		pix->yres = 70;
 		api->SetImage(pix);	// Get OCR result	
 		out = api->GetUTF8Text();
-		//api->End();
 		unsigned long long val = atoll(out);
-		//if (val >= mark1 && val <= mark2) {
-			if (old != val) {
-				old = val;
-				printf("%llu\n", old);
-			}
-		//}
+		if (old != val) {
+			old = val;
+			handle_event(old);
+			printf("%llu %llu\n", old, get_time() - t);
+		}
 		delete[] out;
 		pixDestroy(&pix);
 		Sleep(20);
 	}
+	api->End();
 	delete api;
 	return 0;
 }

@@ -162,8 +162,8 @@ function Lazy:CreateWatchFrame()
 	self.watchFrame:SetResizable(true)
 	self.watchFrame:SetMinResize(90, 120)
 	self.watchFrame:SetMovable(true)
-	self.watchFrame:SetWidth(100)
-	self.watchFrame:SetHeight(25)
+	self.watchFrame:SetWidth(80)
+	self.watchFrame:SetHeight(21)
 	self.watchFrame:SetScript("OnSizeChanged", nil)
 	self.watchFrame:SetPoint("BOTTOMLEFT", "UIParent", "BOTTOMLEFT", 0, 50)
 
@@ -172,10 +172,13 @@ function Lazy:CreateWatchFrame()
 	self.watchFrame:SetBackdropColor(0, 0, 0, 1)
 	self.watchFrame:SetBackdropBorderColor(0.15, 0.3, 0.65, 1)
 
-	self.watchTitleText = self.watchFrame:CreateFontString(nil, nil, "GameFontNormal")
-	self.watchTitleText:SetPoint("LEFT", self.watchFrame, "LEFT", 8, 0)
-	self.watchTitleText:SetText("LazyMarker")
+	self.watchTitleText = self.watchFrame:CreateFontString(nil, nil, "NumberFontNormalSmall")
+	self.watchTitleText:SetFont(media:Fetch("font", "NumberFontNormalSmall"), 10, "OUTLINE");
+	self.watchTitleText:SetTextColor(255, 255, 255, 255);
+	self.watchTitleText:SetSpacing(5);
+	self.watchTitleText:SetPoint("TOPLEFT", self.watchFrame, "TOPLEFT", 8, -5)
 	self.watchTitleText:SetText("40320541000")
+
 	self.watchFrame:Show()
 end
 
@@ -288,6 +291,11 @@ function Lazy:CreateMarkerFrame()
   self:RegisterEvent("UNIT_SPELLCAST_FAILED")
   self:RegisterEvent("UNIT_SPELLCAST_DELAYED")
   self:RegisterEvent("UNIT_SPELLCAST_SENT")
+  self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+  self:RegisterEvent("PLAYER_REGEN_ENABLED")
+  self:RegisterEvent("PLAYER_TARGET_CHANGED")
+
+
 end
 
 function Lazy:MarkerQueueInc(index)
@@ -372,33 +380,6 @@ function Lazy:MarkerRegisterActions(actions)
 	local kname = 1
 	local text, enabled, check, key, index, button
 
-    button = CreateFrame("Button", "LazyActionButton__handshark", UIParent, "SecureActionButtonTemplate")
-    button:Hide()
-    button:SetAttribute("type", "macro")
-    button:SetAttribute("macrotext", "/script Lazy:Handshark()")
-    key = keys[kindex]
-    kindex = kindex + 1
-    SetBinding(key)
-    SetBindingClick(key, "LazyActionButton__handshark");
-
-    button = CreateFrame("Button", "LazyActionButton__startup", UIParent, "SecureActionButtonTemplate")
-    button:Hide()
-    button:SetAttribute("type", "macro")
-    button:SetAttribute("macrotext", "/script Lazy:Startup()")
-    key = keys[kindex]
-    kindex = kindex + 1
-    SetBinding(key)
-    SetBindingClick(key, "LazyActionButton__startup");
-
-    button = CreateFrame("Button", "LazyActionButton__docheck", UIParent, "SecureActionButtonTemplate")
-    button:Hide()
-    button:SetAttribute("type", "macro")
-    button:SetAttribute("macrotext", "/script Lazy:DoCheck()")
-    key = keys[kindex]
-    kindex = kindex + 1
-    SetBinding(key)
-    SetBindingClick(key, "LazyActionButton__docheck");
-
     for k, v in pairs(actions) do
 		local name, param
 		for name, param in pairs(v) do
@@ -476,34 +457,123 @@ function Lazy:MarkerRegisterActions(actions)
 	end
 
 	Lazy:UpdateMount()
-    Lazy:debug("aaaaaaaaaaaaaa")
 end
 
-function Lazy:Handshark()
-    Lazy:mark(99)
-end 
+Unit = {
+};
 
-function Lazy:Startup()
-    Lazy.Ready = true
-    Lazy:debug("Startup")
-end 
+function Unit:new(name)
+	local unit = {};
+	setmetatable(unit, self)
+	self.__index = self
+	unit.name = name;
+	return unit;
+end
+
+function Unit:UpdateAura()
+	self.buffs = {};
+	self.debuffs = {};
+	for i=1, 40 do
+		local name, icon, count, debuffType, duration, expirationTime, casterUnit, canStealOrPurge, shouldConsolidate, spellID, canApply, isBossAura, isCastByPlayer = UnitAura(self.name, i, "HARMFUL")
+		if name and expirationTime then
+			if not self.debuffs[name] then
+				self.debuffs[name] = {}
+			end
+			self.debuffs[name].count = count;
+			self.debuffs[name].time = expirationTime or 0;
+		end	
+	end
+
+	for i=1, 40 do
+		local name, icon, count, debuffType, duration, expirationTime, casterUnit, canStealOrPurge, shouldConsolidate, spellID, canApply, isBossAura, isCastByPlayer = UnitAura(self.name, i, "HELPFUL")
+		if name and expirationTime and isCastByPlayer then
+			local buff = self.buffs[name]
+			if not buff then
+				buff = {}
+				self.buffs[name] = buff;
+			end
+			buff.count = count;
+			buff.time = expirationTime or 0;
+		end	
+	end
+end
+
+function Unit:GetBuff(name)
+	local buff = self.buffs[name]
+	if not buff then
+		return 0
+	end
+	return buff.time - Lazy.now, buff.count
+end
+
+function Unit:GetDebuff(name)
+	if not self.debuffs[name] then
+		return 0
+	else 
+		return 10, 1
+	end
+
+	local n = self.debuffs[name].time - Lazy.now, self.debuffs[name].count
+	return n
+end
+
+function Unit:IsHarm()
+	return UnitExists(self.name) and not UnitIsDeadOrGhost(self.name) and UnitIsVisible("player", self.name) and not UnitIsFriend("player", self.name);
+end
 
 function Lazy:StartCheck()
-    if Lazy.Checked then
-        return
-    end 
-    Lazy.Checked = true
-    Lazy:mark(98)
+	if self.Checked then
+		return
+	end
+	self.Checked = true
+
+	if not self.unit_target then
+		self.unit_target = Unit:new("target");
+	end
+	if Lazy.Mod.StartCheck then
+		Lazy.Mod:StartCheck();
+	end
 end 
 
 function Lazy:StopCheck()
-    Lazy:mark(97)
+	if not self.Checked then
+		return
+	end
     Lazy.Checked = false
+	if Lazy.Mod.StopCheck then
+		Lazy.Mod:StopCheck();
+	end
 end 
 
 function Lazy:DoCheck()
-    Lazy.Mod:DoCheck()
+	Lazy.now = GetTime();
+
+	if self.Checked then
+		if not self.unit_target:IsHarm() then
+			Lazy:StopCheck();
+			return;
+		end
+		self.unit_target:UpdateAura();
+
+		if self.Mod.DoCheck then
+		    if self.Mod:DoCheck(self.unit_target) then
+				Lazy:StopCheck();
+			end
+		end
+	end
 end 
+
+function Lazy:Castable(spell, target)
+    local index = self:GetSpellIndex(spell)
+      if index then
+       if IsUsableSpell(index, BOOKTYPE_SPELL) then
+         local start, duration, enable = _G.GetSpellCooldown(index, BOOKTYPE_SPELL)
+         if start and duration and enable then
+             return (start == 0 or start + duration <= GetTime()) and enable == 1
+         end
+       end
+    end
+end
 
 function Lazy:Mark(prefix, spell, check, uname)
   local s = self.actions[prefix .. spell]
@@ -560,7 +630,7 @@ function Lazy:Mark(prefix, spell, check, uname)
 	end
 
 	nop_time = GetTime()
-	Lazy:mark(s.index)
+	Lazy:mark0(s.index)
 	return true
 end
 
@@ -594,13 +664,24 @@ function Lazy:UpdateMount()
     SetBindingClick("F5", "LazyActionButton__mount");
 end
 
+function Lazy:PLAYER_REGEN_ENABLED()
+    --Lazy:debug("leave combat")
+    Lazy:StopCheck()
+end
+
+function Lazy:PLAYER_TARGET_CHANGED()
+    --Lazy:debug("target changed")
+    Lazy:StopCheck()
+end
 
 function Lazy:UNIT_SPELLCAST_CHANNEL_START(self, unit, spellName, spellRank, spellCastIndex)
+	--Lazy:debug("UNIT_SPELLCAST_CHANNEL_START")
     if (unit ~= 'player') then return end
     auto_fish = false
 end
 
 function Lazy:UNIT_SPELLCAST_CHANNEL_STOP(self, unit, spellName, spellRank, spellCastIndex)
+	--Lazy:debug("UNIT_SPELLCAST_CHANNEL_START")
     if (unit ~= 'player') then return end
     if (spellName ~= L["钓鱼"]) then return end
     auto_fish = true
@@ -608,41 +689,85 @@ end
 
 function Lazy:UNIT_SPELLCAST_SENT(self, unit, spellName, spellRank)
     if (unit ~= 'player') then return end
+	--Lazy:debug("UNIT_SPELLCAST_SENT")
 
     Lazy.casting_spell = spellName
-    Lazy.casting_send_time = GetTime()
+	self.sendTime = GetTime()
 end
 
 function Lazy:UNIT_SPELLCAST_START(self, unit, spellName, spellRank)
     if (unit ~= 'player') then return end
-    Lazy.casting_spell = spellName
-	--local name, subText, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = UnitCastingInfo("player")
-	--Lazy.casting_start_time = startTime / 1000
-	--Lazy.casting_end_time = endTime / 1000
-	--Lazy.casting_delay_time = Lazy.casting_start_time - Lazy.casting_send_time
-	--Lazy.casting_send_time = nil
-	--Lazy:debug(spellName .. " start " .. GetTime())
+	--Lazy:debug("UNIT_SPELLCAST_START")
+    local spellName, _, _,startTime, endTime = CastingInfo(unit);
+    self.startTime = startTime / 1000;
+    self.endTime = endTime / 1000;
+    self.delay = 0;
+    self.casting = true;
+    self.channeling = nil;
+    self.fadeOut = nil;
+    self.spellName = spellName;
+
+    if not self.sendTime then return end
+    self.timeDiff = GetTime() - self.sendTime;
+    local castlength = endTime - startTime;
+    self.timeDiff = self.timeDiff > castlength and castlength or self.timeDiff;
 end
 
 function Lazy:UNIT_SPELLCAST_SUCCEEDED(self, unit, spellName, spellRank, spellCastIndex)
     if (unit ~= 'player') then return end
+	--Lazy:debug("UNIT_SPELLCAST_SUCCEEDED")
 	auto_fish = false
     Lazy.casting_spell = nil
 end
 
 function Lazy:UNIT_SPELLCAST_STOP(self, unit, spellName, spellRank, spellCastIndex)
-    if (unit ~= 'player') then return end
-    Lazy.casting_spell = nil
+	if unit ~="player" then return end
+	--Lazy:debug("UNIT_SPELLCAST_STOP")
+    if self.casting then
+		self.targetName = nil;
+        self.casting = nil;
+        self.fadeOut = true;
+        self.stopTime = GetTime();
+    end
 end
 
 function Lazy:UNIT_SPELLCAST_FAILED(self, unit, spellName, spellRank)
-    if (unit ~= 'player') then return end
-	Lazy.casting_spell = nil
+	--Lazy:debug("UNIT_SPELLCAST_FAILED")
+    if unit ~= "player" or self.channeling then return end
+    self.targetName = nil;
+    self.casting = nil;
+    self.channeling = nil;
+    self.fadeOut = true;
+    if (not self.stopTime) then
+		self.stopTime = GetTime();
+    end
 end
 
 function Lazy:UNIT_SPELLCAST_DELAYED(self, unit, spellName, spellRank)
-    if (unit ~= 'player') then return end
-    Lazy.casting_spell = nil
+    if unit ~= "player" then return end
+	--Lazy:debug("UNIT_SPELLCAST_DELAYED")
+    local oldStart = self.startTime;
+    local spellName,_,text,startTime,endTime = CastingInfo(unit);
+    if not startTime then self.delay = 0 return end
+
+    startTime = startTime/1000;
+    endTime = endTime/1000;
+    self.startTime = startTime;
+    self.endTime = endTime;
+    self.delay = (self.delay or 0) + (startTime - (oldStart or startTime));
+    self.spellName = spellName;
+end
+
+function Lazy:UNIT_SPELLCAST_INTERRUPTED(self, unit, spellName, spellRank)
+    if unit ~= 'player' then return end
+	--Lazy:debug("UNIT_SPELLCAST_DELAYED")
+    self.targetName = nil;
+    self.casting = nil;
+    self.channeling = nil;
+    self.fadeOut = true;
+    if (not self.stopTime) then
+		self.stopTime = GetTime();
+    end
 end
 
 function Lazy:DoFish()
@@ -652,7 +777,6 @@ function Lazy:DoFish()
 	end
 end
 
-cc = 1;
 function Lazy:MarkerTimer()
 	local t = GetTime()
 
@@ -665,8 +789,7 @@ function Lazy:MarkerTimer()
 		nop_time = t
 	end
 
-	Lazy:mark(cc);
-	cc = cc + 1;
+	Lazy:DoCheck();
 	self:ScheduleTimer("MarkerTimer", 0.1);
 end
 

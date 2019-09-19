@@ -1,7 +1,8 @@
 local L = LibStub("AceLocale-3.0"):GetLocale("Lazy")
 
+
 function Lazy:debug(msg)
-	DEFAULT_CHAT_FRAME:AddMessage(msg, 192, 0, 192, 0)
+	DEFAULT_CHAT_FRAME:AddMessage(msg or "nil", 192, 0, 192, 0)
 end
 
 Lazy._spells = {}
@@ -146,27 +147,6 @@ function Lazy:UnitDebuffByName(unit, spell, mineOnly)
 	return 0, 0
 end
 
-function Lazy:Castable(spell, target)
-    --[[
-   local index = self:GetSpellIndex(spell)
-	 if index then
-      if IsUsableSpell(index, BOOKTYPE_SPELL) then
-        local start, duration, enable = _G.GetSpellCooldown(index, BOOKTYPE_SPELL)
-        if start and duration and enable then
-            return (start == 0 or start + duration <= GetTime()) and enable == 1
-        end
-      end
-   end]]
-    local index = self:GetSpellIndex(spell)
-      if index then
-       if IsUsableSpell(index, BOOKTYPE_SPELL) then
-         local start, duration, enable = _G.GetSpellCooldown(index, BOOKTYPE_SPELL)
-         if start and duration and enable then
-             return (start == 0 or start + duration <= GetTime()) and enable == 1
-         end
-       end
-    end
-end
 
 --[[if true or IsUsableSpell(index, BOOKTYPE_SPELL) then
 			if spell ~= "横扫(猎豹形态)" and target then

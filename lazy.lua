@@ -177,29 +177,18 @@ function Lazy:OnEnable()
 end
 
 function Lazy:OnDisable()
-    ___marker___ = 0
     self:CancelAllTimers()
 end
 
 Lazy.marker = 40320541000;
 Lazy.marker_q = 0;
 
-function Lazy:mark(i)
+function Lazy:mark0(i)
     self.marker_q = self.marker_q + 1;
     if self.marker_q >= 100 then
         self.marker_q = 0
     end
     self.marker = 40320540000 + self.marker_q * 100 + i
 	self.watchTitleText:SetText(self.marker)
-end
-
-___marker___ = 40320541000
-___marker_q___ = 0
-function ___lazy_mark___(i)
-    ___marker_q___ = ___marker_q___ + 1
-    if ___marker_q___ >= 100 then
-        ___marker_q___ = 0
-    end
-    ___marker___ = 40320540000 + ___marker_q___ * 100 + i
 end
 

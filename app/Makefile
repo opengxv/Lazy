@@ -1,3 +1,3 @@
 all:
-	g++ watch.cpp -ltesseract -llept -O2 -lGdi32 -liconv
+	g++ watch.cpp -o watch -O2 -ltesseract -llept -lGdi32 -liconv
 
