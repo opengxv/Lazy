@@ -49,76 +49,46 @@ LazyDruid.talent = 0
 
 local actions = {
     ["player"] = {
-        ["愈合"] = {},
-        ["猛虎之怒"] = {},
-        ["求生本能"] = {},
-        ["生命绽放"] = {},
-        ['狂暴'] = {},
-        ['铁鬃'] = {},
-        ["痛击"] = {},
-        ["横扫"] = {},
-        ['狂暴回复'] = {},
-        ["野蛮咆哮"] = {},
-        ['野蛮挥砍'] = {},
-        },
+		["回春术"] = {},
+		["治疗之触"] = {},
+		["野性印记"] = {},
+		["荆棘术"] = {},
+    },
     ["mouseover"] = {
+		["回春术"] = {},
+		["治疗之触"] = {},
+		["野性印记"] = {},
+		["荆棘术"] = {},
     },
     ["focus"] = {
     },
     ["targettarget"] = {
     },
     ["target"] = {
+		["回春术"] = {},
+		["治疗之触"] = {},
+		["野性印记"] = {},
+		["荆棘术"] = {},
+
         ["月火术"] = {},
         ["愤怒"] = {},
     },
     ["other"] = {
-        ['熊形态'] = {
-            text = '/cast [nostance:1] 熊形态; [stance:1] 野性冲锋',
-            key = 'R',
-        },
-        ['旅行形态'] = {
-            text = "/cast 旅行形态",
-            key = 'C',
-        },
-        ['猎豹形态'] = {
-            text = '/cast [nostance:2] 猎豹形态;[nocombat] 潜行',
-            key = 'F',
-        },
-	    ['猎豹冲锋'] = {
-            text = string.format('/cast 野性位移'),
-            key = 'G',
-        },
-        ['急奔'] = {
-            text = string.format('/cast 急奔'),
-            key = 'T',
-        },
         ['攻击'] = {
-            text = '/startattack [nostealth]\n/cast [stealth] 斜掠\n/script LazyDruid.attackType = 1\n/script LazyDruid:Attack("target")',
+            text = '/stopautorun\n/script LazyDruid.attackType = 1\n/script LazyDruid:Attack("target")',
             key = "E",
         }, 
-        ['AOE'] = {
-            text = '/startattack [nostealth]\n/cast [stealth] 斜掠\n/script LazyDruid.attackType = 2\n/script LazyDruid:Attack("target")',
-            key = "Q",
-        }, 
-        ['AOE2'] = {
-            text = '/cleartarget\n/targetenemy\n/startattack [nostealth]\n/script LazyDruid.attackType = 3\n/script LazyDruid:Attack("target")',
-            key = "V",
-        }, 
-        ['蛮力猛击'] = {
-            text = '/cast 蛮力猛击',
-            key = '`',
-        },
-        ['鼠标月火术'] = {
-            text = '/cast [@mouseover,exists,nohelp]月火术',
-            key = 'MOUSEWHEELDOWN',
-        },
-        ['IsBoss'] = {
-            text = '/script Lazy:MarkBoss()',
-            key = '=',
-        },
         ['停止'] = {
             text = '/stopattack\n/stopcasting\n/script Lazy:StopCheck()',
             key = 'z',
+        },
+        ["治疗他人"] = {
+            text = '/script LazyDruid:Heal(Lazy.targets["mouseover"])',
+            key = "MOUSEWHEELDOWN",
+        },
+        ["自我治疗"] = {
+            text = '/script LazyDruid:Heal(Lazy.player)',
+            key = "MOUSEWHEELUP",
         },
     },
 }
@@ -126,7 +96,6 @@ local actions = {
 function LazyDruid:OnEnable()
     Lazy:MarkerRegisterActions(actions)
     Lazy.Mod = self
-    self:RegisterEvent("PLAYER_REGEN_DISABLED")
 
     Lazy:debug("LazyDruid:OnEnable")
 end
@@ -136,43 +105,51 @@ function LazyDruid:OnDisable()
     Lazy:debug("LazyDruid:OnDisable")
 end
 
-function LazyDruid:PLAYER_REGEN_DISABLED(self)
-    GCDIndex = Lazy:GetSpellIndex("横扫")
-end
-
 function LazyDruid:DoCheck(target)
     self:AttackLoop(target)
 end
 
+function LazyDruid:Heal(target)
+	if target:IsHarm() then
+		return
+	end
+	Lazy:StopCheck()
+	target:UpdateAura();
+
+	if not Lazy.combating then
+		if target:GetBuff("野性印记") == 0 then
+			if Lazy:Mark(target, "野性印记", true) then
+				return
+			end
+		end
+		if target:GetBuff("荆棘术") == 0 then
+			if Lazy:Mark(target, "荆棘术", true) then
+				return
+			end
+		end
+	end
+
+	if target:GetBuff("回春术") == 0 then
+		if Lazy:Mark(target, "回春术", true) then
+			return
+		end
+	end
+
+	Lazy:Mark(target, "治疗之触", true)
+end
+
 function LazyDruid:Attack(target)
 	target = "target";
-	Lazy:debug("start")
 	Lazy:StartCheck();
-
-    --[[
-    if LazyDruid.attackType ~= 3 then
-        if not Lazy:IsHarm(target) then
-            return
-        end
-    end 
-
-    local stance = GetShapeshiftForm()
-    self:AttackLoop(target)
-    Lazy:StartCheck()
-    ]]
 end
 
 function LazyDruid:AttackLoop(target)
-    --local start, duration, enable = GetSpellCooldown(GCDIndex, BOOKTYPE_SPELL)
-    --if not (start and duration and enable == 1 and (start == 0 or start + duration <= currentTime)) then
-    --    return
-    --end
 	if target:GetDebuff("月火术") < 1 then
-		if Lazy:Mark("target", "月火术", true) then
+		if Lazy:Mark(target, "月火术", true) then
 			return;
 		end
 	end
 
-	Lazy:Mark("target", "愤怒", true)
+	Lazy:Mark(target, "愤怒", true)
 end
 

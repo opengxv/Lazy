@@ -8,8 +8,11 @@
 
 
 embeds.xml
+util.lua
 locale-zhCN.lua
 lazy.lua
+unit.lua
+spell.lua
 lib.lua
 marker.lua
 druid.lua

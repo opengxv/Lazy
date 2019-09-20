@@ -340,9 +340,6 @@ void send_key(unsigned event) {
 }
 
 void handle_event(unsigned long long event) {
-	if (event < MARK1 || event > MARK2) {
-		return;
-	}
 	event -= MARK1;
 	event %= 100;
 
@@ -432,11 +429,14 @@ int main(int argc, char **argv)
 		api->SetImage(pix);	// Get OCR result	
 		out = api->GetUTF8Text();
 		unsigned long long val = atoll(out);
-		if (old != val) {
-			old = val;
-			handle_event(old);
-			printf("%llu %llu\n", old, get_time() - t);
+		if (val >= MARK1 && val <= MARK2) {
+			if (old != val) {
+				old = val;
+				handle_event(old);
+				printf("%llu %llu\n", old, get_time() - t);
+			}
 		}
+
 		delete[] out;
 		pixDestroy(&pix);
 		Sleep(20);

@@ -293,9 +293,10 @@ function Lazy:CreateMarkerFrame()
   self:RegisterEvent("UNIT_SPELLCAST_SENT")
   self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
   self:RegisterEvent("PLAYER_REGEN_ENABLED")
+  self:RegisterEvent("PLAYER_REGEN_DISABLED")
   self:RegisterEvent("PLAYER_TARGET_CHANGED")
 
-
+  self:InitCheck();
 end
 
 function Lazy:MarkerQueueInc(index)
@@ -366,12 +367,12 @@ function Lazy:MarkerRegisterActions(actions)
 			SetBinding(k)
 		end
 	end
+
 	self.boundKeys = {}
 	self.actions = {}
 	self.buttons = {}
 	SetBinding("A", "STRAFELEFT");
 	SetBinding("D", "STRAFERIGHT");
-	SetBinding("MOUSEWHEELUP", "TOGGLEAUTORUN");
 	SetBinding("ALT-R", "REPLY");
 	SetBinding("UP", "CAMERAZOOMIN");
 	SetBinding("DOWN", "CAMERAZOOMOUT");
@@ -459,66 +460,16 @@ function Lazy:MarkerRegisterActions(actions)
 	Lazy:UpdateMount()
 end
 
-Unit = {
-};
 
-function Unit:new(name)
-	local unit = {};
-	setmetatable(unit, self)
-	self.__index = self
-	unit.name = name;
-	return unit;
-end
-
-function Unit:UpdateAura()
-	self.buffs = {};
-	self.debuffs = {};
-	for i=1, 40 do
-		local name, icon, count, debuffType, duration, expirationTime, casterUnit, canStealOrPurge, shouldConsolidate, spellID, canApply, isBossAura, isCastByPlayer = UnitAura(self.name, i, "HARMFUL")
-		if name and expirationTime then
-			if not self.debuffs[name] then
-				self.debuffs[name] = {}
-			end
-			self.debuffs[name].count = count;
-			self.debuffs[name].time = expirationTime or 0;
-		end	
-	end
-
-	for i=1, 40 do
-		local name, icon, count, debuffType, duration, expirationTime, casterUnit, canStealOrPurge, shouldConsolidate, spellID, canApply, isBossAura, isCastByPlayer = UnitAura(self.name, i, "HELPFUL")
-		if name and expirationTime and isCastByPlayer then
-			local buff = self.buffs[name]
-			if not buff then
-				buff = {}
-				self.buffs[name] = buff;
-			end
-			buff.count = count;
-			buff.time = expirationTime or 0;
-		end	
-	end
-end
-
-function Unit:GetBuff(name)
-	local buff = self.buffs[name]
-	if not buff then
-		return 0
-	end
-	return buff.time - Lazy.now, buff.count
-end
-
-function Unit:GetDebuff(name)
-	if not self.debuffs[name] then
-		return 0
-	else 
-		return 10, 1
-	end
-
-	local n = self.debuffs[name].time - Lazy.now, self.debuffs[name].count
-	return n
-end
-
-function Unit:IsHarm()
-	return UnitExists(self.name) and not UnitIsDeadOrGhost(self.name) and UnitIsVisible("player", self.name) and not UnitIsFriend("player", self.name);
+function Lazy:InitCheck()
+	self.spells = {}
+	self.targets = {
+		player = LazyUnit:new("player"),
+		target = LazyUnit:new("target"),
+		mouseover = LazyUnit:new("mouseover"),
+	};
+	self.player = self.targets["player"];
+	self.target = self.targets["target"];
 end
 
 function Lazy:StartCheck()
@@ -527,9 +478,6 @@ function Lazy:StartCheck()
 	end
 	self.Checked = true
 
-	if not self.unit_target then
-		self.unit_target = Unit:new("target");
-	end
 	if Lazy.Mod.StartCheck then
 		Lazy.Mod:StartCheck();
 	end
@@ -548,43 +496,56 @@ end
 function Lazy:DoCheck()
 	Lazy.now = GetTime();
 
+	if (self.casting) then
+		if (Lazy.now > self.endTime) then
+			self.casting = nil;
+            self.fadeOut = true;
+            self.stopTime = Lazy.now;
+            return;
+        end
+	end 
 	if self.Checked then
-		if not self.unit_target:IsHarm() then
+		local target = self.targets["target"];
+		if not target:IsHarm() then
 			Lazy:StopCheck();
 			return;
 		end
-		self.unit_target:UpdateAura();
+		target:UpdateAura();
 
 		if self.Mod.DoCheck then
-		    if self.Mod:DoCheck(self.unit_target) then
+		    if self.Mod:DoCheck(target) then
 				Lazy:StopCheck();
 			end
 		end
 	end
 end 
 
-function Lazy:Castable(spell, target)
-    local index = self:GetSpellIndex(spell)
-      if index then
-       if IsUsableSpell(index, BOOKTYPE_SPELL) then
-         local start, duration, enable = _G.GetSpellCooldown(index, BOOKTYPE_SPELL)
-         if start and duration and enable then
-             return (start == 0 or start + duration <= GetTime()) and enable == 1
-         end
-       end
-    end
+
+function Lazy:GetSpell(spellName) 
+	local spell = self.spells[spellName];
+	if not spell then
+		spell = LazySpell:new(spellName);
+		self.spells[spellName] = spell;
+	end
+	return spell;
 end
 
-function Lazy:Mark(prefix, spell, check, uname)
-  local s = self.actions[prefix .. spell]
+function Lazy:Mark(target, spell, check, uname)
+	local prefix = target.name;
+	local s = self.actions[prefix .. spell]
 	if not s then
 		return false
 	end
 
+	spell = self:GetSpell(spell);
+	if not spell then
+		return false;
+	end
+
 	if check then
 		if s.check == nil then
-			if not self:Castable(spell, prefix) then
-				return false
+			if not self.player:Castable(spell) then
+				return false;
 			end
 		else
 			if not s.check() then
@@ -617,7 +578,7 @@ function Lazy:Mark(prefix, spell, check, uname)
         if not self.markerQueue[self.markerTail] then
 	    	self.markerQueue[self.markerTail] = {}
 	    end
-	    self.markerQueue[self.markerTail].text = spell .. "=>" .. uname
+	    self.markerQueue[self.markerTail].text = spell.name .. "=>" .. uname
 	    self.markerQueue[self.markerTail].clicked = false
 		self.markerQueue[self.markerTail].markTime = t
 	    self.buttons[s.button] = self.markerQueue[self.markerTail]
@@ -664,8 +625,14 @@ function Lazy:UpdateMount()
     SetBindingClick("F5", "LazyActionButton__mount");
 end
 
+function Lazy:PLAYER_REGEN_DISABLED()
+    --Lazy:debug("leave combat")
+	self.combating = true;
+end
+
 function Lazy:PLAYER_REGEN_ENABLED()
     --Lazy:debug("leave combat")
+	self.combating = false;
     Lazy:StopCheck()
 end
 
@@ -687,15 +654,13 @@ function Lazy:UNIT_SPELLCAST_CHANNEL_STOP(self, unit, spellName, spellRank, spel
     auto_fish = true
 end
 
-function Lazy:UNIT_SPELLCAST_SENT(self, unit, spellName, spellRank)
+function Lazy:UNIT_SPELLCAST_SENT(event, unit, spell, rank, target)
+	--Lazy:debug("UNIT_SPELLCAST_SENT " .. (unit or "unknown"))
     if (unit ~= 'player') then return end
-	--Lazy:debug("UNIT_SPELLCAST_SENT")
-
-    Lazy.casting_spell = spellName
 	self.sendTime = GetTime()
 end
 
-function Lazy:UNIT_SPELLCAST_START(self, unit, spellName, spellRank)
+function Lazy:UNIT_SPELLCAST_START(event, unit)
     if (unit ~= 'player') then return end
 	--Lazy:debug("UNIT_SPELLCAST_START")
     local spellName, _, _,startTime, endTime = CastingInfo(unit);
@@ -713,17 +678,15 @@ function Lazy:UNIT_SPELLCAST_START(self, unit, spellName, spellRank)
     self.timeDiff = self.timeDiff > castlength and castlength or self.timeDiff;
 end
 
-function Lazy:UNIT_SPELLCAST_SUCCEEDED(self, unit, spellName, spellRank, spellCastIndex)
+function Lazy:UNIT_SPELLCAST_SUCCEEDED(event, unit)
     if (unit ~= 'player') then return end
-	--Lazy:debug("UNIT_SPELLCAST_SUCCEEDED")
-	auto_fish = false
-    Lazy.casting_spell = nil
+	--Lazy:debug("UNIT_SPELLCAST_SUCCEEDED " .. (unit or "unknown"))
 end
 
-function Lazy:UNIT_SPELLCAST_STOP(self, unit, spellName, spellRank, spellCastIndex)
+function Lazy:UNIT_SPELLCAST_STOP(event, unit)
 	if unit ~="player" then return end
-	--Lazy:debug("UNIT_SPELLCAST_STOP")
     if self.casting then
+		--Lazy:debug("UNIT_SPELLCAST_STOP")
 		self.targetName = nil;
         self.casting = nil;
         self.fadeOut = true;
@@ -731,9 +694,9 @@ function Lazy:UNIT_SPELLCAST_STOP(self, unit, spellName, spellRank, spellCastInd
     end
 end
 
-function Lazy:UNIT_SPELLCAST_FAILED(self, unit, spellName, spellRank)
+function Lazy:UNIT_SPELLCAST_FAILED(event, unit)
+    if unit ~= "player" then return end
 	--Lazy:debug("UNIT_SPELLCAST_FAILED")
-    if unit ~= "player" or self.channeling then return end
     self.targetName = nil;
     self.casting = nil;
     self.channeling = nil;
@@ -743,7 +706,7 @@ function Lazy:UNIT_SPELLCAST_FAILED(self, unit, spellName, spellRank)
     end
 end
 
-function Lazy:UNIT_SPELLCAST_DELAYED(self, unit, spellName, spellRank)
+function Lazy:UNIT_SPELLCAST_DELAYED(event, unit)
     if unit ~= "player" then return end
 	--Lazy:debug("UNIT_SPELLCAST_DELAYED")
     local oldStart = self.startTime;
@@ -758,9 +721,9 @@ function Lazy:UNIT_SPELLCAST_DELAYED(self, unit, spellName, spellRank)
     self.spellName = spellName;
 end
 
-function Lazy:UNIT_SPELLCAST_INTERRUPTED(self, unit, spellName, spellRank)
+function Lazy:UNIT_SPELLCAST_INTERRUPTED(event, unit)
     if unit ~= 'player' then return end
-	--Lazy:debug("UNIT_SPELLCAST_DELAYED")
+	--Lazy:debug("UNIT_SPELLCAST_INTERRUPTED")
     self.targetName = nil;
     self.casting = nil;
     self.channeling = nil;
