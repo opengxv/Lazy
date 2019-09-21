@@ -503,7 +503,9 @@ function Lazy:DoCheck()
             self.stopTime = Lazy.now;
             return;
         end
+		return;
 	end 
+
 	if self.Checked then
 		local target = self.targets["target"];
 		if not target:IsHarm() then

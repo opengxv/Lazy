@@ -51,12 +51,14 @@ local actions = {
     ["player"] = {
 		["回春术"] = {},
 		["治疗之触"] = {},
+		["愈合"] = {},
 		["野性印记"] = {},
 		["荆棘术"] = {},
     },
     ["mouseover"] = {
 		["回春术"] = {},
 		["治疗之触"] = {},
+		["愈合"] = {},
 		["野性印记"] = {},
 		["荆棘术"] = {},
     },
@@ -67,6 +69,7 @@ local actions = {
     ["target"] = {
 		["回春术"] = {},
 		["治疗之触"] = {},
+		["愈合"] = {},
 		["野性印记"] = {},
 		["荆棘术"] = {},
 
@@ -75,7 +78,7 @@ local actions = {
     },
     ["other"] = {
         ['攻击'] = {
-            text = '/stopautorun\n/script LazyDruid.attackType = 1\n/script LazyDruid:Attack("target")',
+            text = '/startattack\n/script LazyDruid.attackType = 1\n/script LazyDruid:Attack("target")',
             key = "E",
         }, 
         ['停止'] = {
@@ -131,6 +134,12 @@ function LazyDruid:Heal(target)
 
 	if target:GetBuff("回春术") == 0 then
 		if Lazy:Mark(target, "回春术", true) then
+			return
+		end
+	end
+
+	if target:GetBuff("愈合") == 0 then
+		if Lazy:Mark(target, "愈合", true) then
 			return
 		end
 	end
