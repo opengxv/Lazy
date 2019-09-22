@@ -62,15 +62,20 @@ function LazyUnit:IsHarm()
 	return UnitExists(self.name) and not UnitIsDeadOrGhost(self.name) and UnitIsVisible("player", self.name) and not UnitIsFriend("player", self.name);
 end
 
-function LazyUnit:Castable(spell)
-	if spell:Ready() then
-		for i = 1, spell.cost_count do
-			cost = spell.costs[i];
-
-			if cost.cost > UnitPower(self.name, cost.type) then
-				return false;
-			end
-		end
-		return true;
+function LazyUnit:Castable(spell, target)
+	if not spell:Ready() then
+		return
 	end
+
+	if not (UnitCanAttack(self.name, target.name) or UnitCanAssist(self.name, target.name)) then
+		return
+	end
+	for i = 1, spell.cost_count do
+		cost = spell.costs[i];
+
+		if cost.cost > UnitPower(self.name, cost.type) then
+			return false;
+		end
+	end
+	return true;
 end

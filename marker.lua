@@ -295,7 +295,8 @@ function Lazy:CreateMarkerFrame()
   self:RegisterEvent("PLAYER_REGEN_ENABLED")
   self:RegisterEvent("PLAYER_REGEN_DISABLED")
   self:RegisterEvent("PLAYER_TARGET_CHANGED")
-
+  self:RegisterEvent("START_AUTOREPEAT_SPELL")
+  
   self:InitCheck();
 end
 
@@ -499,6 +500,11 @@ end
 function Lazy:DoCheck()
 	Lazy.now = GetTime();
 
+	local spell, displayName, icon, startTime, endTime, isTradeSkill, castID, notInterruptible = CastingInfo("player")
+	if spell then 
+		return
+	end
+
 	if (self.casting) then
 		if (Lazy.now > self.endTime) then
 			self.casting = nil;
@@ -533,6 +539,7 @@ function Lazy:GetSpell(spellName)
 	return spell;
 end
 
+--
 function Lazy:Mark(target, spell, check, uname)
 	local prefix = target.name;
 	local s = self.actions[prefix .. spell]
@@ -547,7 +554,7 @@ function Lazy:Mark(target, spell, check, uname)
 
 	if check then
 		if s.check == nil then
-			if not self.player:Castable(spell) then
+			if not self.player:Castable(spell, target) then
 				return false;
 			end
 		else
@@ -627,6 +634,10 @@ function Lazy:UpdateMount()
     SetBinding("F5")
     SetBindingClick("F5", "LazyActionButton__mount");
 end
+
+function Lazy:START_AUTOREPEAT_SPELL()
+	Lazy:debug("START_AUTOREPEAT_SPELL")
+end 
 
 function Lazy:PLAYER_REGEN_DISABLED()
     --Lazy:debug("leave combat")

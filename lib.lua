@@ -2,7 +2,7 @@ local L = LibStub("AceLocale-3.0"):GetLocale("Lazy")
 
 
 function Lazy:debug(msg)
-	DEFAULT_CHAT_FRAME:AddMessage(msg or "nil", 192, 0, 192, 0)
+	DEFAULT_CHAT_FRAME:AddMessage(msg, 192, 0, 192, 0)
 end
 
 Lazy._spells = {}
