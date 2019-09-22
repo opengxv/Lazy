@@ -62,6 +62,7 @@ local actions = {
 		["野性印记"] = {},
         ["荆棘术"] = {},
         ["槌击"] = {},
+        ["挥击"] = {},
     },
     ["focus"] = {
     },
@@ -77,11 +78,16 @@ local actions = {
         ["月火术"] = {},
         ["愤怒"] = {},
         ["槌击"] = {},
+        ["挥击"] = {},
     },
     ["other"] = {
         ['攻击'] = {
-            text = '/startattack\n/script LazyDruid.attackType = 1\n/script LazyDruid:Attack(Lazy.target)',
+            text = '/startattack\n/script LazyDruid:Attack(Lazy.target)',
             key = "E",
+        }, 
+        ['攻击2'] = {
+            text = '/startattack\n/script LazyDruid:Attack(Lazy.target, true)',
+            key = "Q",
         }, 
         ['停止'] = {
             text = '/stopattack\n/stopcasting\n/script Lazy:StopCheck()',
@@ -159,7 +165,8 @@ function LazyDruid:Heal(target)
 	Lazy:Mark(target, "治疗之触", true)
 end
 
-function LazyDruid:Attack(target)
+function LazyDruid:Attack(target, second)
+    self.second = second
 	Lazy:StartCheck();
 end
 
@@ -174,8 +181,14 @@ function LazyDruid:AttackLoop(target)
 end
 
 function LazyDruid:BearAttackLoop(target)
-    if Lazy:Mark(target, "槌击", true) then
-        return;
+    if self.second then
+        if Lazy:Mark(target, "挥击", true) then
+            return;
+        end
+    else
+        if Lazy:Mark(target, "槌击", true) then
+            return;
+        end
     end
 end
 
