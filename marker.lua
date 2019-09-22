@@ -360,8 +360,6 @@ function Lazy:nop()
 end
 
 function Lazy:MarkerRegisterActions(actions)
-	--local k, v
-	
 	if self.boundKeys then
 		for k, v in pairs(self.boundKeys) do
 			SetBinding(k)
@@ -470,6 +468,7 @@ function Lazy:InitCheck()
 	};
 	self.player = self.targets["player"];
 	self.target = self.targets["target"];
+	self.mouseover = self.targets["mouseover"];
 end
 
 function Lazy:StartCheck()
@@ -493,14 +492,16 @@ function Lazy:StopCheck()
 	end
 end 
 
+function Lazy:Stop()
+	return self:StopCheck()
+end
+
 function Lazy:DoCheck()
 	Lazy.now = GetTime();
 
 	if (self.casting) then
 		if (Lazy.now > self.endTime) then
 			self.casting = nil;
-            self.fadeOut = true;
-            self.stopTime = Lazy.now;
             return;
         end
 		return;
@@ -657,9 +658,11 @@ function Lazy:UNIT_SPELLCAST_CHANNEL_STOP(self, unit, spellName, spellRank, spel
 end
 
 function Lazy:UNIT_SPELLCAST_SENT(event, unit, spell, rank, target)
-	--Lazy:debug("UNIT_SPELLCAST_SENT " .. (unit or "unknown"))
     if (unit ~= 'player') then return end
+	--Lazy:debug("UNIT_SPELLCAST_SENT ")
 	self.sendTime = GetTime()
+	self.endTime = self.sendTime + 1
+	self.casting = true
 end
 
 function Lazy:UNIT_SPELLCAST_START(event, unit)
@@ -668,32 +671,24 @@ function Lazy:UNIT_SPELLCAST_START(event, unit)
     local spellName, _, _,startTime, endTime = CastingInfo(unit);
     self.startTime = startTime / 1000;
     self.endTime = endTime / 1000;
-    self.delay = 0;
     self.casting = true;
-    self.channeling = nil;
-    self.fadeOut = nil;
     self.spellName = spellName;
 
     if not self.sendTime then return end
-    self.timeDiff = GetTime() - self.sendTime;
-    local castlength = endTime - startTime;
-    self.timeDiff = self.timeDiff > castlength and castlength or self.timeDiff;
 end
 
 function Lazy:UNIT_SPELLCAST_SUCCEEDED(event, unit)
     if (unit ~= 'player') then return end
-	--Lazy:debug("UNIT_SPELLCAST_SUCCEEDED " .. (unit or "unknown"))
+	--Lazy:debug("UNIT_SPELLCAST_SUCCEEDED ")
 end
 
 function Lazy:UNIT_SPELLCAST_STOP(event, unit)
 	if unit ~="player" then return end
-    if self.casting then
-		--Lazy:debug("UNIT_SPELLCAST_STOP")
+	--Lazy:debug("UNIT_SPELLCAST_STOP")
+	if self.casting then
 		self.targetName = nil;
-        self.casting = nil;
-        self.fadeOut = true;
-        self.stopTime = GetTime();
-    end
+		self.casting = nil;
+	end
 end
 
 function Lazy:UNIT_SPELLCAST_FAILED(event, unit)
@@ -701,11 +696,6 @@ function Lazy:UNIT_SPELLCAST_FAILED(event, unit)
 	--Lazy:debug("UNIT_SPELLCAST_FAILED")
     self.targetName = nil;
     self.casting = nil;
-    self.channeling = nil;
-    self.fadeOut = true;
-    if (not self.stopTime) then
-		self.stopTime = GetTime();
-    end
 end
 
 function Lazy:UNIT_SPELLCAST_DELAYED(event, unit)
@@ -719,7 +709,6 @@ function Lazy:UNIT_SPELLCAST_DELAYED(event, unit)
     endTime = endTime/1000;
     self.startTime = startTime;
     self.endTime = endTime;
-    self.delay = (self.delay or 0) + (startTime - (oldStart or startTime));
     self.spellName = spellName;
 end
 
@@ -730,9 +719,6 @@ function Lazy:UNIT_SPELLCAST_INTERRUPTED(event, unit)
     self.casting = nil;
     self.channeling = nil;
     self.fadeOut = true;
-    if (not self.stopTime) then
-		self.stopTime = GetTime();
-    end
 end
 
 function Lazy:DoFish()
@@ -755,6 +741,6 @@ function Lazy:MarkerTimer()
 	end
 
 	Lazy:DoCheck();
-	self:ScheduleTimer("MarkerTimer", 0.1);
+	self:ScheduleTimer("MarkerTimer", 0.2);
 end
 

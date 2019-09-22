@@ -60,7 +60,8 @@ local actions = {
 		["治疗之触"] = {},
 		["愈合"] = {},
 		["野性印记"] = {},
-		["荆棘术"] = {},
+        ["荆棘术"] = {},
+        ["槌击"] = {},
     },
     ["focus"] = {
     },
@@ -75,22 +76,28 @@ local actions = {
 
         ["月火术"] = {},
         ["愤怒"] = {},
+        ["槌击"] = {},
     },
     ["other"] = {
         ['攻击'] = {
-            text = '/startattack\n/script LazyDruid.attackType = 1\n/script LazyDruid:Attack("target")',
+            text = '/startattack\n/script LazyDruid.attackType = 1\n/script LazyDruid:Attack(Lazy.target)',
             key = "E",
         }, 
         ['停止'] = {
             text = '/stopattack\n/stopcasting\n/script Lazy:StopCheck()',
             key = 'z',
         },
+        ['熊形态'] = {
+            --text = '/cast [nostance:1] 熊形态; [stance:1] 野性冲锋(熊形态)',
+            text = '/script Lazy:Stop()\n/stopcasting\n/cast [nostance:1] 熊形态; [stance:1] 熊形态',
+            key = 'R',
+        },
         ["治疗他人"] = {
-            text = '/script LazyDruid:Heal(Lazy.targets["mouseover"])',
+            text = '/script Lazy:Stop()\n/cancelaura 熊形态\n/script LazyDruid:Heal(Lazy.mouseover)',
             key = "MOUSEWHEELDOWN",
         },
         ["自我治疗"] = {
-            text = '/script LazyDruid:Heal(Lazy.player)',
+            text = '/script Lazy:Stop()\n/cancelaura 熊形态\n/script LazyDruid:Heal(Lazy.player)',
             key = "MOUSEWHEELUP",
         },
     },
@@ -109,7 +116,12 @@ function LazyDruid:OnDisable()
 end
 
 function LazyDruid:DoCheck(target)
-    self:AttackLoop(target)
+    self.stance = GetShapeshiftForm()
+    if self.stance == 0 then
+        self:AttackLoop(target)
+    elseif self.stance == 1 then
+        self:BearAttackLoop(target)
+    end
 end
 
 function LazyDruid:Heal(target)
@@ -148,7 +160,6 @@ function LazyDruid:Heal(target)
 end
 
 function LazyDruid:Attack(target)
-	target = "target";
 	Lazy:StartCheck();
 end
 
@@ -160,5 +171,11 @@ function LazyDruid:AttackLoop(target)
 	end
 
 	Lazy:Mark(target, "愤怒", true)
+end
+
+function LazyDruid:BearAttackLoop(target)
+    if Lazy:Mark(target, "槌击", true) then
+        return;
+    end
 end
 

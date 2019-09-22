@@ -274,8 +274,12 @@ public:
 	}
 
 	PIX* get() {
-		assertWin32(::BitBlt(m_hdcMem, 0, 0, m_width, m_height, m_hdcWnd, m_x, m_y, SRCCOPY));
-		assertWin32(::GetDIBits(m_hdcMem, m_hbmWnd, 0, m_height, m_bmp, (BITMAPINFO*)m_bi, DIB_RGB_COLORS));
+		if (!::BitBlt(m_hdcMem, 0, 0, m_width, m_height, m_hdcWnd, m_x, m_y, SRCCOPY)) {
+			return NULL;
+		}
+		if (!::GetDIBits(m_hdcMem, m_hbmWnd, 0, m_height, m_bmp, (BITMAPINFO*)m_bi, DIB_RGB_COLORS)) {
+			return NULL;
+		}
 		return pixReadMemBmp(m_buffer, m_buffersize);
 	}
 
@@ -404,45 +408,53 @@ int main(int argc, char **argv)
 	int screen_height = GetSystemMetrics(SM_CYSCREEN);
 	y += screen_height;
 
-	Screen screen(0, x, y, width, height);
-	if (capture) {
-		Pix* pix = screen.get();
-		screen.save();
-		pixDestroy(&pix);
-		return 0;
-	}
-
-
-	char* out;
-	tesseract::TessBaseAPI* api = new tesseract::TessBaseAPI();
-	if (api->Init(NULL, "eng")) {
-		fprintf(stderr, "Could not initialize tesseract.\n");
-		exit(1);
-	}
-
-	unsigned long long old = 0;
+again:
 	while (1) {
-		unsigned long long t = get_time();
-		Pix *pix = screen.get();
-		pix->xres = 70;
-		pix->yres = 70;
-		api->SetImage(pix);	// Get OCR result	
-		out = api->GetUTF8Text();
-		unsigned long long val = atoll(out);
-		if (val >= MARK1 && val <= MARK2) {
-			if (old != val) {
-				old = val;
-				handle_event(old);
-				printf("%llu %llu\n", old, get_time() - t);
-			}
+		Screen screen(0, x, y, width, height);
+		if (capture) {
+			Pix* pix = screen.get();
+			screen.save();
+			pixDestroy(&pix);
+			return 0;
 		}
 
-		delete[] out;
-		pixDestroy(&pix);
-		Sleep(20);
+
+		char* out;
+		tesseract::TessBaseAPI* api = new tesseract::TessBaseAPI();
+		if (api->Init(NULL, "eng")) {
+			fprintf(stderr, "Could not initialize tesseract.\n");
+			exit(1);
+		}
+
+		unsigned long long old = 0;
+		while (1) {
+			unsigned long long t = get_time();
+			Pix* pix = screen.get();
+			if (!pix) {
+				Sleep(1000);
+				goto again;
+			}
+			pix->xres = 70;
+			pix->yres = 70;
+			api->SetImage(pix);	// Get OCR result	
+			out = api->GetUTF8Text();
+			unsigned long long val = atoll(out);
+			if (val >= MARK1 && val <= MARK2) {
+				if (old != val) {
+					old = val;
+					handle_event(old);
+					printf("%llu %llu\n", old, get_time() - t);
+				}
+			}
+
+			delete[] out;
+			pixDestroy(&pix);
+			Sleep(20);
+		}
+		api->End();
+		delete api;
 	}
-	api->End();
-	delete api;
+
 	return 0;
 }
 
