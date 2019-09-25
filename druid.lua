@@ -53,7 +53,11 @@ local actions = {
 		["治疗之触"] = {},
 		["愈合"] = {},
 		["野性印记"] = {},
-		["荆棘术"] = {},
+        ["荆棘术"] = {},
+        ["猛虎之怒"] = {},
+        ["急奔"] = {
+            key = "T"
+        },
     },
     ["mouseover"] = {
 		["回春术"] = {},
@@ -63,6 +67,11 @@ local actions = {
         ["荆棘术"] = {},
         ["槌击"] = {},
         ["挥击"] = {},
+        ["挫志咆哮"] = {},
+        ["爪击"] = {},
+        ["撕扯"] = {},
+        ["扫击"] = {},
+
     },
     ["focus"] = {
     },
@@ -79,10 +88,16 @@ local actions = {
         ["愤怒"] = {},
         ["槌击"] = {},
         ["挥击"] = {},
+        ["挫志咆哮"] = {},
+        ["爪击"] = {},
+        ["撕扯"] = {},
+        ["撕碎"] = {},
+        ["扫击"] = {},
+         
     },
     ["other"] = {
         ['攻击'] = {
-            text = '/startattack\n/script LazyDruid:Attack(Lazy.target)',
+            text = '/cast [stance:3,stealth] 撕碎\n/startattack\n/script LazyDruid:Attack(Lazy.target)',
             key = "E",
         }, 
         ['攻击2'] = {
@@ -95,15 +110,23 @@ local actions = {
         },
         ['熊形态'] = {
             --text = '/cast [nostance:1] 熊形态; [stance:1] 野性冲锋(熊形态)',
-            text = '/script Lazy:Stop()\n/stopcasting\n/cast [nostance:1] 熊形态; [stance:1] 熊形态',
+            text = '/script Lazy:Stop()\n/stopcasting\n/cancelaura 水栖形态\n/cancelaura 猎豹形态\n/cast [nostance:1] 熊形态; [stance:1] 熊形态',
             key = 'R',
         },
+        ['海豹形态'] = {
+            text = '/script Lazy:Stop()\n/stopcasting\n/cancelaura 熊形态\n/cancelaura 猎豹形态\n/cast 水栖形态',
+            key = 'C',
+        },
+        ['猎豹形态'] = {
+            text = '/script Lazy:Stop()\n/stopcasting\n/cancelaura 熊形态\n/cancelaura 水栖形态\n/cast [stance:3] 潜行\n/cast [nostance:3] 猎豹形态',
+            key = 'F',
+        },
         ["治疗他人"] = {
-            text = '/script Lazy:Stop()\n/cancelaura 熊形态\n/script LazyDruid:Heal(Lazy.mouseover)',
+            text = '/script Lazy:Stop()\n/cancelaura 熊形态\n/cancelaura 水栖形态\n/cancelaura 猎豹形态\n/script LazyDruid:Heal(Lazy.mouseover)',
             key = "MOUSEWHEELDOWN",
         },
         ["自我治疗"] = {
-            text = '/script Lazy:Stop()\n/cancelaura 熊形态\n/script LazyDruid:Heal(Lazy.player)',
+            text = '/script Lazy:Stop()\n/cancelaura 熊形态\n/cancelaura 水栖形态\n/cancelaura 猎豹形态\n/script LazyDruid:Heal(Lazy.player)',
             key = "MOUSEWHEELUP",
         },
     },
@@ -127,8 +150,14 @@ function LazyDruid:DoCheck(target)
         self:AttackLoop(target)
     elseif self.stance == 1 then
         self:BearAttackLoop(target)
+    elseif self.stance == 3 then
+        self:CatAttackLoop(target)
     end
 end
+
+function LazyDruid:Perform(str)
+    return true
+end 
 
 function LazyDruid:Heal(target)
 	if target:IsHarm() then
@@ -136,6 +165,7 @@ function LazyDruid:Heal(target)
 	end
 	Lazy:StopCheck()
 	target:UpdateAura();
+	Lazy.player:UpdateAura();
 
 	if not Lazy.combating then
 		if target:GetBuff("野性印记") == 0 then
@@ -147,8 +177,13 @@ function LazyDruid:Heal(target)
 			if Lazy:Mark(target, "荆棘术", true) then
 				return
 			end
-		end
-	end
+        end
+        
+        if target == Lazy.player and target.hpp > 0.95 then
+            return
+        end
+    end
+
 
 	if target:GetBuff("回春术") == 0 then
 		if Lazy:Mark(target, "回春术", true) then
@@ -181,6 +216,11 @@ function LazyDruid:AttackLoop(target)
 end
 
 function LazyDruid:BearAttackLoop(target)
+	if target:GetDebuff("挫志咆哮") < 1 then
+		if Lazy:Mark(target, "挫志咆哮", true) then
+			return;
+		end
+	end
     if self.second then
         if Lazy:Mark(target, "挥击", true) then
             return;
@@ -192,3 +232,27 @@ function LazyDruid:BearAttackLoop(target)
     end
 end
 
+function LazyDruid:CatAttackLoop(target)
+--	if Lazy.player:GetBuff("猛虎之怒") == 0 then
+--		if Lazy:Mark(Lazy.player, "猛虎之怒", true) then
+--			return
+--		end
+--	end
+
+    local cp = GetComboPoints("player", target.name)
+	if cp >= 3 and target:GetDebuff("撕扯") < 1 then
+        Lazy:Mark(target, "撕扯", true)
+        return
+    end
+	if target:GetDebuff("扫击") < 1 then
+		if Lazy:Mark(target, "扫击", true) then
+			return;
+		end
+	end
+
+    if self.second then
+        Lazy:Mark(target, "撕碎", true)
+    else
+        Lazy:Mark(target, "爪击", true)
+    end
+end 

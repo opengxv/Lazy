@@ -460,6 +460,11 @@ function Lazy:MarkerRegisterActions(actions)
 end
 
 
+function Lazy:QueueReset()
+	self.queue_i = 1
+	self.queue_c = 0
+end
+
 function Lazy:InitCheck()
 	self.spells = {}
 	self.targets = {
@@ -470,12 +475,22 @@ function Lazy:InitCheck()
 	self.player = self.targets["player"];
 	self.target = self.targets["target"];
 	self.mouseover = self.targets["mouseover"];
+
+	self.queue = {}
+	self:QueueReset()
+end
+
+function Lazy:Add(str)
+	self.queue_c = self.queue_c + 1
+	self.queue[self.queue_c] = str
 end
 
 function Lazy:StartCheck()
 	if self.Checked then
 		return
 	end
+	self:QueueReset()
+
 	self.Checked = true
 
 	if Lazy.Mod.StartCheck then
@@ -484,6 +499,8 @@ function Lazy:StartCheck()
 end 
 
 function Lazy:StopCheck()
+	self:QueueReset()
+
 	if not self.Checked then
 		return
 	end
@@ -513,6 +530,13 @@ function Lazy:DoCheck()
 		return;
 	end 
 
+	if self.queue_i <= self.queue_c then
+		if self.Mod.Perform(self.queue[self.queue_i]) then
+			self.queue_i = self.queue_i + 1
+		end
+		return
+	end
+
 	if self.Checked then
 		local target = self.targets["target"];
 		if not target:IsHarm() then
@@ -520,6 +544,7 @@ function Lazy:DoCheck()
 			return;
 		end
 		target:UpdateAura();
+		self.player:UpdateAura();
 
 		if self.Mod.DoCheck then
 		    if self.Mod:DoCheck(target) then

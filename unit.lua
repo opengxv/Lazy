@@ -37,6 +37,9 @@ function LazyUnit:UpdateAura()
 			buff.time = expirationTime or 0;
 		end	
 	end
+	self.hp = UnitHealth(self.name) or 0
+	self.max_hp = UnitHealthMax(self.name) or 1
+	self.hpp = self.hp / self.max_hp
 end
 
 function LazyUnit:GetBuff(name)

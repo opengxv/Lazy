@@ -406,6 +406,8 @@ int main(int argc, char **argv)
 	init_keymaps();
 
 	int screen_height = GetSystemMetrics(SM_CYSCREEN);
+	int screen_width = GetSystemMetrics(SM_CXSCREEN);
+	printf("screen_width = %d, screen_height = %d\n", screen_width, screen_height);
 	y += screen_height;
 
 again:
