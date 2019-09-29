@@ -14,27 +14,41 @@ end
 function LazyUnit:UpdateAura()
 	self.buffs = {};
 	self.debuffs = {};
+	self.poison = nil
+	self.curse = nil
 	for i=1, 40 do
 		local name, icon, count, debuffType, duration, expirationTime, casterUnit, canStealOrPurge, shouldConsolidate, spellID, canApply, isBossAura, isCastByPlayer = UnitAura(self.name, i, "HARMFUL")
-		if name and expirationTime then
+		if name then
 			if not self.debuffs[name] then
 				self.debuffs[name] = {}
 			end
-			self.debuffs[name].count = count;
+			self.debuffs[name].count = count or 1;
 			self.debuffs[name].time = expirationTime or 0;
+
+			if debuffType == "Poison" then
+				self.poison = true
+			elseif debuffType == "Curse" then
+				self.curse = true
+			end
+		else
+			break
 		end	
 	end
 
 	for i=1, 40 do
 		local name, icon, count, debuffType, duration, expirationTime, casterUnit, canStealOrPurge, shouldConsolidate, spellID, canApply, isBossAura, isCastByPlayer = UnitAura(self.name, i, "HELPFUL")
-		if name and expirationTime and isCastByPlayer then
-			local buff = self.buffs[name]
-			if not buff then
-				buff = {}
-				self.buffs[name] = buff;
+		if name then
+			if isCastByPlayer then
+				local buff = self.buffs[name]
+				if not buff then
+					buff = {}
+					self.buffs[name] = buff;
+				end
+				buff.count = count or 1;
+				buff.time = expirationTime or 0;
 			end
-			buff.count = count;
-			buff.time = expirationTime or 0;
+		else
+			break
 		end	
 	end
 	self.hp = UnitHealth(self.name) or 0
