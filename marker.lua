@@ -451,12 +451,12 @@ function Lazy:MarkerRegisterActions(actions)
 	SetBinding(key)
 	SetBindingClick(key, "LazyActionButton__nop");
 
-	if not mount_button then
-		mount_button = CreateFrame("Button", "LazyActionButton__mount", UIParent, "SecureActionButtonTemplate")
-		mount_button:Hide()
-	end
+	-- if not mount_button then
+	-- 	mount_button = CreateFrame("Button", "LazyActionButton__mount", UIParent, "SecureActionButtonTemplate")
+	-- 	mount_button:Hide()
+	-- end
 
-	Lazy:UpdateMount()
+	-- Lazy:UpdateMount()
 end
 
 
@@ -636,22 +636,15 @@ function Lazy:UpdateMount()
 	end
 
 	local s
-	if Lazy.db.profile.options.landMount == "" then
-		Lazy.db.profile.options.landMount = nil
-	end
 
-	if Lazy.db.profile.options.flyMount == "" then
-		Lazy.db.profile.options.flyMount = nil
-	end
-
-	if not Lazy.db.profile.options.landMount and not Lazy.db.profile.options.flyMount then
+	if not Lazy.landMount and not Lazy.flyMount then
 		s = ""
-	elseif not Lazy.db.profile.options.landMount then
-		s = string.format("/use [flyable,nocombat] %s", Lazy.db.profile.options.flyMount)
-	elseif not Lazy.db.profile.options.flyMount then
-		s = string.format("/use [outdoors,nocombat] %s", Lazy.db.profile.options.landMount)
+	elseif not Lazy.landMount then
+		s = string.format("/use [flyable,nocombat] %s", Lazy.flyMount)
+	elseif not Lazy.flyMount then
+		s = string.format("/use [outdoors,nocombat] %s", Lazy.landMount)
 	else
-		s = string.format("/use [flyable,nocombat] %s; [outdoors,nocombat] %s", Lazy.db.profile.options.flyMount, Lazy.db.profile.options.landMount)
+		s = string.format("/use [flyable,nocombat] %s; [outdoors,nocombat] %s", Lazy.flyMount, Lazy.landMount)
 	end
 
 	mount_button:SetAttribute("type", "macro")

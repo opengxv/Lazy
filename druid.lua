@@ -124,24 +124,28 @@ local actions = {
         },
         ['熊形态'] = {
             --text = '/cast [nostance:1] 熊形态; [stance:1] 野性冲锋(熊形态)',
-            text = '/script Lazy:Stop()\n/stopcasting\n/cancelaura 水栖形态\n/cancelaura 猎豹形态\n/cast [nostance:1] 熊形态; [stance:1] 熊形态',
+            text = '/script Lazy:Stop()\n/stopcasting\n/cancelaura 水栖形态\n/cancelaura 猎豹形态\n/cancelaura 旅行形态\n/cast [nostance:1] 巨熊形态; [stance:1] 巨熊形态',
             key = 'R',
         },
         ['海豹形态'] = {
-            text = '/script Lazy:Stop()\n/stopcasting\n/cancelaura 熊形态\n/cancelaura 猎豹形态\n/cancelaura 旅行形态\n/cast [swimming]水栖形态\n/cast [noswimming]旅行形态',
+            text = '/script Lazy:Stop()\n/stopcasting\n/cancelaura 巨熊形态\n/cancelaura 猎豹形态\n/cancelaura 旅行形态\n/cast [swimming]水栖形态\n/cast [noswimming]旅行形态',
             key = 'C',
         },
         ['猎豹形态'] = {
-            text = '/script Lazy:Stop()\n/stopcasting\n/cancelaura 熊形态\n/cancelaura 水栖形态\n/cancelaura 旅行形态\n/cast [stance:3] 潜行\n/cast [nostance:3] 猎豹形态',
+            text = '/script Lazy:Stop()\n/stopcasting\n/cancelaura 巨熊形态\n/cancelaura 水栖形态\n/cancelaura 旅行形态\n/cast [stance:3] 潜行\n/cast [nostance:3] 猎豹形态',
             key = 'F',
         },
         ["治疗他人"] = {
-            text = '/script Lazy:Stop()\n/cancelaura 熊形态\n/cancelaura 水栖形态\n/cancelaura 猎豹形态\n/cancelaura 旅行形态\n/script LazyDruid:Heal(Lazy.mouseover)',
+            text = '/script Lazy:Stop()\n/cancelaura 巨熊形态\n/cancelaura 水栖形态\n/cancelaura 猎豹形态\n/cancelaura 旅行形态\n/script LazyDruid:Heal(Lazy.mouseover)',
             key = "MOUSEWHEELDOWN",
         },
         ["自我治疗"] = {
-            text = '/script Lazy:Stop()\n/cancelaura 熊形态\n/cancelaura 水栖形态\n/cancelaura 猎豹形态\n/cancelaura 旅行形态\n/script LazyDruid:Heal(Lazy.player)',
+            text = '/script Lazy:Stop()\n/cancelaura 巨熊形态\n/cancelaura 水栖形态\n/cancelaura 猎豹形态\n/cancelaura 旅行形态\n/script LazyDruid:Heal(Lazy.player)',
             key = "MOUSEWHEELUP",
+        },
+        ["骑乘"] = {
+            text = '/cancelaura 猎豹形态\n/cancelaura 巨熊形态\n/cancelaura 水栖形态\n/cancelaura 旅行形态\n/cast 条纹夜刃豹缰绳',
+            key = "F5",
         },
     },
 }
@@ -171,15 +175,15 @@ end
 
 function LazyDruid:CancelAura(index)
     if index == 0 then
-        return '/cancelaura 猎豹形态\n/cancelaura 熊形态\n/cancelaura 水栖形态\n/cancelaura 旅行形态\n'
+        return '/cancelaura 猎豹形态\n/cancelaura 巨熊形态\n/cancelaura 水栖形态\n/cancelaura 旅行形态\n'
     elseif index == 1 then
         return '/cancelaura 猎豹形态\n/cancelaura 水栖形态\n/cancelaura 旅行形态\n'
     elseif index == 2 then
-        return '/cancelaura 猎豹形态\n/cancelaura 熊形态\n/cancelaura 旅行形态\n'
+        return '/cancelaura 猎豹形态\n/cancelaura 巨熊形态\n/cancelaura 旅行形态\n'
     elseif index == 3 then
-        return '/cancelaura 熊形态\n/cancelaura 水栖形态\n/cancelaura 旅行形态\n'
+        return '/cancelaura 巨熊形态\n/cancelaura 水栖形态\n/cancelaura 旅行形态\n'
     elseif index == 4 then
-        return '/cancelaura 猎豹形态\n/cancelaura 熊形态\n/cancelaura 水栖形态\n'
+        return '/cancelaura 猎豹形态\n/cancelaura 巨熊形态\n/cancelaura 水栖形态\n'
     end
 end
 
@@ -195,7 +199,20 @@ function LazyDruid:Heal(target)
 	target:UpdateAura();
 	Lazy.player:UpdateAura();
 
-	if not Lazy.combating then
+    if target.hpp >= 0.7 then
+        if target.poison then
+            if 	Lazy:Mark(target, "驱毒术", true) then
+                return
+            end
+        end
+        if target.curse then
+            if 	Lazy:Mark(target, "解除诅咒", true) then
+                return
+            end
+        end
+    end
+
+    if not Lazy.combating then
 		if target:GetBuff("野性印记") == 0 then
 			if Lazy:Mark(target, "野性印记", true) then
 				return
@@ -212,19 +229,6 @@ function LazyDruid:Heal(target)
         end
     end
 
-    if target.hpp >= 0.7 then
-        if target.poison then
-            if 	Lazy:Mark(target, "驱毒术", true) then
-                return
-            end
-        end
-        if target.curse then
-            if 	Lazy:Mark(target, "解除诅咒", true) then
-                return
-            end
-        end
-    end
-
     if target.hpp <= 0.6 then
         if target:GetBuff("愈合") == 0 then
             if Lazy:Mark(target, "愈合", true) then
@@ -235,6 +239,17 @@ function LazyDruid:Heal(target)
 
     if target.hpp <= 0.3 then
         if 	Lazy:Mark(target, "治疗之触", true) then
+            return
+        end
+    end
+
+    if target.poison then
+        if 	Lazy:Mark(target, "驱毒术", true) then
+            return
+        end
+    end
+    if target.curse then
+        if 	Lazy:Mark(target, "解除诅咒", true) then
             return
         end
     end
@@ -292,6 +307,14 @@ function LazyDruid:CatAttackLoop(target)
 	-- 		return
 	-- 	end
 	-- end
+
+    if IsStealthed() then
+        return
+    end
+
+    if UnitIsUnit("targettarget", "player") then
+        self.second = nil
+    end
 
 	if not Lazy.combating and target:GetDebuff("精灵之火（野性）") < 1 then
 		if Lazy:Mark(target, "精灵之火（野性）", true) then
