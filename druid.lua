@@ -1,70 +1,26 @@
-local L = LibStub("AceLocale-3.0"):GetLocale("Lazy")
-local GetSpellCooldown  = _G.GetSpellCooldown;
-local UnitPower = _G.UnitPower
-local GetComboPoints = _G.GetComboPoints
-local UnitDebuff = _G.UnitDebuff
-local UnitAura = _G.UnitAura
-local GetTalentInfo = _G.GetTalentInfo
-
-local auto
-local currentTime
-local lastTime = 0
-local power
-local GCDIndex
-local spellIndex = 0
-local spellCount = 0
-local spellQueue = {}
-local stance = nil
-
-local GCD = 1
-
-if select(2, UnitClass("player")) == "DRUID" then
-    LazyDruid = Lazy:NewModule(L["德鲁伊"], "AceTimer-3.0", "AceEvent-3.0" )
-else
+LazyDruid = Lazy:CreatePlayer("DRUID")
+if not LazyDruid then
     return
 end
 
-LazyDruid.defaults = {
-    autoJH = true,
-    autoInterrupt = true,
-};
-
-LazyDruid.options = {
-    AutoJH = {
-        type = "toggle",
-        name = L["自动激活"],
-        get = function() return LazyDruid.db.autoJH end,
-        set = function(info, val) LazyDruid.db.autoJH = val end,
-    },
-    AutoInterrupt = {
-        type = "toggle",
-        name = L["自动打断"],
-        get = function() return LazyDruid.db.autoInterrupt end,
-        set = function(info, val) LazyDruid.db.autoInterrupt = val end,
-    },
-};
-
-LazyDruid.attackType = 0
-LazyDruid.talent = 0
-
 local actions = {
     ["player"] = {
-		["回春术"]      = {stance = 0},
-		["治疗之触"]    = {stance = 0},
-        ["愈合"]        = {stance = 0},
-        ["驱毒术"]      = {stance = 0},
-        ["解除诅咒"]    = {stance = 0},
-		["野性印记"]    = {stance = 0},
-        ["荆棘术"]      = {stance = 0},
+		["回春术"]      = {},
+		["治疗之触"]    = {},
+        ["愈合"]        = {},
+        ["驱毒术"]      = {},
+        ["解除诅咒"]    = {},
+		["野性印记"]    = {},
+        ["荆棘术"]      = {},
 
-        ["猛虎之怒"]    = {stance = 3},
+        ["猛虎之怒"]    = {},
         ["急奔"] = {
             stance = 3,
             key = "T"
         },
     },
     ["mouseover"] = {
-		["回春术"]      = {stance = 0},
+		["回春术"]      = {},
 		["治疗之触"] = {},
         ["愈合"] = {},
         ["驱毒术"] = {},
@@ -86,7 +42,7 @@ local actions = {
     ["targettarget"] = {
     },
     ["target"] = {
-		["回春术"]      = {stance = 0},
+		["回春术"]      = {},
 		["治疗之触"] = {},
         ["愈合"] = {},
         ["驱毒术"] = {},
@@ -119,7 +75,7 @@ local actions = {
             key = "Q",
         }, 
         ['停止'] = {
-            text = '/stopattack\n/stopcasting\n/script Lazy:StopCheck()',
+            text = '/stopattack\n/stopcasting\n/script Lazy:Stop()',
             key = 'z',
         },
         ['熊形态'] = {
@@ -150,27 +106,9 @@ local actions = {
     },
 }
 
-function LazyDruid:OnEnable()
+function LazyDruid:OnInitialize()
+    lazy_debug("LazyDruid:OnEnable")
     Lazy:MarkerRegisterActions(actions)
-    Lazy.Mod = self
-
-    Lazy:debug("LazyDruid:OnEnable")
-end
-
-function LazyDruid:OnDisable()
-    self:CancelAllTimers()
-    Lazy:debug("LazyDruid:OnDisable")
-end
-
-function LazyDruid:DoCheck(target)
-    self.stance = GetShapeshiftForm()
-    if self.stance == 0 then
-        self:AttackLoop(target)
-    elseif self.stance == 1 then
-        self:BearAttackLoop(target)
-    elseif self.stance == 3 then
-        self:CatAttackLoop(target)
-    end
 end
 
 function LazyDruid:CancelAura(index)
@@ -187,94 +125,88 @@ function LazyDruid:CancelAura(index)
     end
 end
 
-function LazyDruid:Perform(str)
-    return true
-end 
-
 function LazyDruid:Heal(target)
-	if target:IsHarm() then
-        return
-	end
-	Lazy:StopCheck()
-	target:UpdateAura();
-	Lazy.player:UpdateAura();
+    Lazy:Update(function()
+        if target:IsHarm() then
+            return
+        end
 
-    if target.hpp >= 0.7 then
+        if target.hpp >= 0.7 then
+            if target.poison then
+                if 	Lazy:Mark(target, "驱毒术", true) then
+                    return
+                end
+            end
+            if target.curse then
+                if 	Lazy:Mark(target, "解除诅咒", true) then
+                    return
+                end
+            end
+        end
+
+        if not Lazy.combating then
+            if Lazy:CMark(target, "野性印记") then
+                return
+            end
+            if Lazy:CMark(target, "荆棘术") then
+                return
+            end
+            
+            if target == Lazy.player and target.hpp > 0.95 then
+                return
+            end
+        end
+
+        if target.hpp <= 0.6 then
+            if Lazy:CMark(target, "愈合") then
+                return
+            end
+        end 
+
+        if target.hpp <= 0.3 then
+            if 	Lazy:Mark(target, "治疗之触", true) then
+                return
+            end
+        end
+
         if target.poison then
             if 	Lazy:Mark(target, "驱毒术", true) then
                 return
             end
         end
+
         if target.curse then
             if 	Lazy:Mark(target, "解除诅咒", true) then
                 return
             end
         end
-    end
 
-    if not Lazy.combating then
-		if target:GetBuff("野性印记") == 0 then
-			if Lazy:Mark(target, "野性印记", true) then
-				return
-			end
-		end
-		if target:GetBuff("荆棘术") == 0 then
-			if Lazy:Mark(target, "荆棘术", true) then
-				return
-			end
-        end
-        
-        if target == Lazy.player and target.hpp > 0.95 then
+        if Lazy:CMark(target, "回春术") then
             return
         end
-    end
 
-    if target.hpp <= 0.6 then
-        if target:GetBuff("愈合") == 0 then
-            if Lazy:Mark(target, "愈合", true) then
-                return
-            end
-        end
-    end 
-
-    if target.hpp <= 0.3 then
-        if 	Lazy:Mark(target, "治疗之触", true) then
+        if Lazy:CMark(target, "愈合") then
             return
         end
-    end
 
-    if target.poison then
-        if 	Lazy:Mark(target, "驱毒术", true) then
-            return
-        end
-    end
-    if target.curse then
-        if 	Lazy:Mark(target, "解除诅咒", true) then
-            return
-        end
-    end
-
-	if target:GetBuff("回春术") == 0 then
-		if Lazy:Mark(target, "回春术", true) then
-			return
-		end
-	end
-
-	if target:GetBuff("愈合") == 0 then
-		if Lazy:Mark(target, "愈合", true) then
-			return
-		end
-	end
-
-	Lazy:Mark(target, "治疗之触", true)
+        Lazy:Mark(target, "治疗之触", true)
+    end)
 end
 
 function LazyDruid:Attack(target, second)
-    self.second = second
-	Lazy:StartCheck();
+    Lazy:Start(function()
+        self.stance = GetShapeshiftForm()
+        if self.stance == 0 then
+            self:AcAttack(target, second)
+        elseif self.stance == 1 then
+            self:BearAttack(target, second)
+        elseif self.stance == 3 then
+            self:CatAttack(target, second)
+        end
+    end);
 end
 
-function LazyDruid:AttackLoop(target)
+function LazyDruid:AcAttack(target, second)
 	if target:GetDebuff("月火术") < 1 then
 		if Lazy:Mark(target, "月火术", true) then
 			return;
@@ -284,13 +216,13 @@ function LazyDruid:AttackLoop(target)
 	Lazy:Mark(target, "愤怒", true)
 end
 
-function LazyDruid:BearAttackLoop(target)
+function LazyDruid:BearAttack(target, second)
 	if target:GetDebuff("挫志咆哮") < 1 then
 		if Lazy:Mark(target, "挫志咆哮", true) then
 			return;
 		end
 	end
-    if self.second then
+    if second then
         if Lazy:Mark(target, "挥击", true) then
             return;
         end
@@ -301,26 +233,18 @@ function LazyDruid:BearAttackLoop(target)
     end
 end
 
-function LazyDruid:CatAttackLoop(target)
-	-- if Lazy.player:GetBuff("猛虎之怒") == 0 then
-	-- 	if Lazy:Mark(Lazy.player, "猛虎之怒", true) then
+function LazyDruid:CatAttack(target, second)
+	-- 	if Lazy:CMark(Lazy.player, "猛虎之怒") then
 	-- 		return
 	-- 	end
-	-- end
 
     if IsStealthed() then
         return
     end
 
     if UnitIsUnit("targettarget", "player") then
-        self.second = nil
+        second = nil
     end
-
-	if not Lazy.combating and target:GetDebuff("精灵之火（野性）") < 1 then
-		if Lazy:Mark(target, "精灵之火（野性）", true) then
-			return;
-		end
-	end
 
     local cp = GetComboPoints("player", target.name)
 	if cp > 4 then
@@ -328,13 +252,11 @@ function LazyDruid:CatAttackLoop(target)
         return
     end
 
-	if Lazy.combating and target:GetDebuff("扫击") < 1 then
-		if Lazy:Mark(target, "扫击", true) then
-			return;
-		end
-	end
+    if Lazy:CMark(target, "扫击") then
+        return;
+    end
 
-    if self.second then
+    if second then
         if Lazy:Mark(target, "撕碎", true) then
             return
         end
@@ -344,10 +266,7 @@ function LazyDruid:CatAttackLoop(target)
         end
     end
 
-    if target:GetDebuff("精灵之火（野性）") < 1 then
-		if Lazy:Mark(target, "精灵之火（野性）", true) then
-			return;
-		end
-	end
-
+    if Lazy:CMark(target, "精灵之火（野性）") then
+        return;
+    end
 end 

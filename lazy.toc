@@ -7,7 +7,6 @@
 ## RequiredDeps: Duowan
 
 
-embeds.xml
 util.lua
 locale-zhCN.lua
 lazy.lua

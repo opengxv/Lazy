@@ -8,3 +8,7 @@ function lazy_clone(object, deep)
     end
     return setmetatable(copy, getmetatable(object))
 end
+
+function lazy_debug(msg)
+	DEFAULT_CHAT_FRAME:AddMessage(msg, 192, 0, 192, 0)
+end

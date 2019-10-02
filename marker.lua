@@ -63,17 +63,17 @@ local keys = {
 	"ALT-CTRL-F10",						-- 130
 	"ALT-CTRL-F11",						-- 131
 	"ALT-CTRL-F12",						-- 132
-	"SHIFT-CTRL-F1",						-- 121
-	"SHIFT-CTRL-F2",						-- 122
-	"SHIFT-CTRL-F3",						-- 123
-	"SHIFT-CTRL-F5",						-- 125
-	"SHIFT-CTRL-F6",						-- 126
-	"SHIFT-CTRL-F7",						-- 127
-	"SHIFT-CTRL-F8",						-- 128
-	"SHIFT-CTRL-F9",						-- 129
-	"SHIFT-CTRL-F10",						-- 130
-	"SHIFT-CTRL-F11",						-- 131
-	"SHIFT-CTRL-F12",						-- 132
+	"SHIFT-CTRL-F1",					-- 121
+	"SHIFT-CTRL-F2",					-- 122
+	"SHIFT-CTRL-F3",					-- 123
+	"SHIFT-CTRL-F5",					-- 125
+	"SHIFT-CTRL-F6",					-- 126
+	"SHIFT-CTRL-F7",					-- 127
+	"SHIFT-CTRL-F8",					-- 128
+	"SHIFT-CTRL-F9",					-- 129
+	"SHIFT-CTRL-F10",					-- 130
+	"SHIFT-CTRL-F11",					-- 131
+	"SHIFT-CTRL-F12",					-- 132
 	"SHIFT-ALT-F1",						-- 121
 	"SHIFT-ALT-F2",						-- 122
 	"SHIFT-ALT-F3",						-- 123
@@ -82,9 +82,9 @@ local keys = {
 	"SHIFT-ALT-F7",						-- 127
 	"SHIFT-ALT-F8",						-- 128
 	"SHIFT-ALT-F9",						-- 129
-	"SHIFT-ALT-F10",						-- 130
-	"SHIFT-ALT-F11",						-- 131
-	"SHIFT-ALT-F12",						-- 132
+	"SHIFT-ALT-F10",					-- 130
+	"SHIFT-ALT-F11",					-- 131
+	"SHIFT-ALT-F12",					-- 132
 	"SHIFT-CTRL-1",						-- 103
 	"SHIFT-CTRL-2",						-- 104
 	"SHIFT-CTRL-3",						-- 105
@@ -97,255 +97,11 @@ local keys = {
 	"SHIFT-CTRL-0",						-- 112
 }
 
-local L = LibStub("AceLocale-3.0"):GetLocale("Lazy")
-local seq = 0
-local mount_button
-local auto_fish = false
-
-Lazy.options.args.ShowMarkerWindow = {
-		type = "toggle",
-		name = L["显示Marker窗口"],
-		get = function() return Lazy.db.profile.showMarkerWindow end,
-		set = function(info, val) 
-			Lazy.db.profile.showMarkerWindow = val 
-			if not Lazy.markerFrame then
-				return
-			end
-			
-			if val then
-				Lazy:MarkerFillContent()
-				Lazy.markerFrame:Show()
-			else
-				Lazy.markerFrame:Hide()
-			end
-		end,
-}
-
-Lazy.defaults.profile.showMarkerWindow = true
-local nop_key_index = 1
-local nop_time = GetTime()
-Lazy.casting_spell = nil
-
-function Lazy:UpdateMarkerFramePos(x, y)
-	Lazy.db.profile.options.x = x
-	Lazy.db.profile.options.y = y
-
-	if not self.markerFrame then
-		return
-	end
-
-	self.markerFrame:ClearAllPoints() 
-	if Lazy.db.profile.options.x and Lazy.db.profile.options.y then
-		self.markerFrame:SetPoint("BOTTOMLEFT", "UIParent", "BOTTOMLEFT", Lazy.db.profile.options.x, Lazy.db.profile.options.y)
-	else
-		self.markerFrame:SetPoint("CENTER", UIParent, "CENTER")
-	end
-end
-
-function Lazy:CreateWatchFrame()
-	if self.watchFrame then
-		return
-	end
-
-	local media = LibStub("LibSharedMedia-3.0")
-	local bgFrame = {
-		tile = true,
-		tileSize = 16,
-		edgeSize = 16,
-		insets = {left = 4, right = 4, top = 4, bottom = 4}
-	}
-	bgFrame.bgFile = media:Fetch("background", "Solid")
-	--bgFrame.edgeFile = media:Fetch("border", "Blizzard Tooltip")
-
-	-- Frame
-	self.watchFrame = CreateFrame("Frame", "LazyWatchFrame", UIParent)
-	self.watchFrame:SetResizable(true)
-	self.watchFrame:SetMinResize(90, 120)
-	self.watchFrame:SetMovable(true)
-	self.watchFrame:SetWidth(80)
-	self.watchFrame:SetHeight(21)
-	self.watchFrame:SetScript("OnSizeChanged", nil)
-	self.watchFrame:SetPoint("BOTTOMLEFT", "UIParent", "BOTTOMLEFT", 0, 50)
-
-	self.watchFrame:SetAlpha(1)
-	self.watchFrame:SetBackdrop(bgFrame)
-	self.watchFrame:SetBackdropColor(0, 0, 0, 1)
-	self.watchFrame:SetBackdropBorderColor(0.15, 0.3, 0.65, 1)
-
-	self.watchTitleText = self.watchFrame:CreateFontString(nil, nil, "NumberFontNormalSmall")
-	self.watchTitleText:SetFont(media:Fetch("font", "NumberFontNormalSmall"), 10, "OUTLINE");
-	self.watchTitleText:SetTextColor(255, 255, 255, 255);
-	self.watchTitleText:SetSpacing(5);
-	self.watchTitleText:SetPoint("TOPLEFT", self.watchFrame, "TOPLEFT", 8, -5)
-	self.watchTitleText:SetText("40320541000")
-
-	self.watchFrame:Show()
-end
-
-function Lazy:CreateMarkerFrame()
-	Lazy:CreateWatchFrame();
-
-	if self.markerFrame then
-		return
-	end
-
-	local media = LibStub("LibSharedMedia-3.0")
-	local bgFrame = {
-		tile = true,
-		tileSize = 16,
-		edgeSize = 16,
-		insets = {left = 4, right = 4, top = 4, bottom = 4}
-	}
-	bgFrame.bgFile = media:Fetch("background", "Blizzard Tooltip")
-	bgFrame.edgeFile = media:Fetch("border", "Blizzard Tooltip")
-
-	-- Frame
-	self.markerFrame = CreateFrame("Frame", "LazyMarkerFrame", UIParent)
-	self.markerFrame:SetResizable(true)
-	self.markerFrame:SetMinResize(90, 120)
-	self.markerFrame:SetMovable(true)
-	self.markerFrame:SetWidth(225)
-	self.markerFrame:SetHeight(130)
-	self.markerFrame:SetScript("OnSizeChanged", nil)
-	self:UpdateMarkerFramePos(Lazy.db.profile.options.x, Lazy.db.profile.options.y)
-
-	-- Title
-	self.markerTitle = CreateFrame("Frame", "LazyMarkerTitle", self.markerFrame)
-	self.markerTitle:SetPoint("TOPLEFT", self.markerFrame, "TOPLEFT")
-	self.markerTitle:SetPoint("TOPRIGHT", self.markerFrame, "TOPRIGHT")
-	self.markerTitle:SetHeight(25)
-	self.markerTitle:EnableMouse(true)
-	
-	self.markerTitleText = self.markerTitle:CreateFontString(nil, nil, "GameFontNormal")
-	self.markerTitleText:SetPoint("LEFT", self.markerTitle, "LEFT", 10, 0)
-	self.markerTitleText:SetText("LazyMarker")
-
-	self.markerTitleText:SetJustifyH("LEFT")
-	self.markerTitleText:SetTextColor(1, 1, 0, 0.95)
-
-	self.markerTitle:SetScript("OnMouseDown", function() 
-		Lazy.markerFrame:StartMoving()
-	end)
-	
-	self.markerTitle:SetScript("OnMouseUp", function()
-		Lazy.markerFrame:StopMovingOrSizing();		
-		Lazy.db.profile.options.x = Lazy.markerFrame:GetLeft()
-		Lazy.db.profile.options.y = Lazy.markerFrame:GetBottom()
-	end)
-	
-	self.markerTitle:SetAlpha(1)
-	self.markerTitle:SetBackdrop(bgFrame)
-	self.markerTitle:SetBackdropColor(0, 0, 0, 1)
-	self.markerTitle:SetBackdropBorderColor(0.15, 0.3, 0.65, 1)
-
-	-- ScrollFrame
-	self.markerScrollFrame = CreateFrame("ScrollFrame", "LazyMarkerScrollFrame", self.markerFrame, "UIPanelScrollFrameTemplate")
-	
-	-- Message	
-	self.markerMessage = CreateFrame("Frame", "LazyMarkerMessage", self.markerFrame)
-	self.markerMessage:SetResizable(true)
-	self.markerMessage:EnableMouse(true)
-	self.markerMessage:SetPoint("TOPLEFT", self.markerTitle, "BOTTOMLEFT")
-	self.markerMessage:SetPoint("TOPRIGHT", self.markerTitle, "BOTTOMRIGHT")
-	self.markerMessage:SetPoint("BOTTOMLEFT", self.markerFrame, "BOTTOMLEFT")
-	self.markerMessage:SetPoint("BOTTOMRIGHT", self.markerFrame, "BOTTOMRIGHT")
-
-	self.markerMessage:SetAlpha(1)
-	self.markerMessage:SetBackdrop(bgFrame)
-	self.markerMessage:SetBackdropColor(0, 0, 0, 1)
-	self.markerMessage:SetBackdropBorderColor(0.15, 0.3, 0.65, 1)
-	
-	-- Labels
-	local i
-	self.markerLabels = {}
-	for i = 1, 5 do
-		local label = self.markerMessage:CreateFontString(nil, nil, "GameFontNormal")
-		self.markerLabels[i] = label
-		if i == 1 then
-			label:SetPoint("TOPLEFT", self.markerMessage, "TOPLEFT", 10, -5)
-		else
-			label:SetPoint("TOP", self.markerLabels[i - 1], "BOTTOM", 0, -5)
-			label:SetPoint("LEFT", self.markerMessage, 10, 0);
-		end
-		label:SetJustifyH("LEFT")
-	end
-
-	self.markerQueue = {}
-	self.markerHead = 1
-	self.markerTail = 1
-	self.markerLength = 7
-
-	if self.db.profile.showMarkerWindow then
-		self:MarkerFillContent()
-		Lazy.markerFrame:Show()
-	else
-		Lazy.markerFrame:Hide()
-	end
-
-  self:ScheduleTimer("MarkerTimer", 1);
-  self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
-  self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
-  self:RegisterEvent("UNIT_SPELLCAST_START")
-  self:RegisterEvent("UNIT_SPELLCAST_STOP")
-  self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-  self:RegisterEvent("UNIT_SPELLCAST_FAILED")
-  self:RegisterEvent("UNIT_SPELLCAST_DELAYED")
-  self:RegisterEvent("UNIT_SPELLCAST_SENT")
-  self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
-  self:RegisterEvent("PLAYER_REGEN_ENABLED")
-  self:RegisterEvent("PLAYER_REGEN_DISABLED")
-  self:RegisterEvent("PLAYER_TARGET_CHANGED")
-  self:RegisterEvent("START_AUTOREPEAT_SPELL")
-  
-  self:InitCheck();
-end
-
-function Lazy:MarkerQueueInc(index)
-	if index < self.markerLength then
-		return index + 1
-	else
-		return 1
-	end
-end
-
-function Lazy:MarkerFillContent()
-	if not Lazy.db.profile.showMarkerWindow then
-		return
-	end
-	
-	local index = self.markerTail
-	local i
-	for i = 1, 5 do
-		
-		local label = self.markerLabels[i]
-		
-		if index == self.markerHead then
-			label:SetText("")
-		else
-			index = index - 1
-			if index < 1 then
-				index = self.markerLength
-			end
-			local item = self.markerQueue[index]
-			if item.clicked then
-				label:SetText(item.text .. ' ' .. (item.clickTime - item.markTime))
-				label:SetTextColor(0, 1, 0, 1)
-			else
-				label:SetText(item.text)
-				label:SetTextColor(1, 1, 0, 1)
-			end
-		end
-	end
-end
-
 local function LazyMarker_PreClick(self, button)
-	if Lazy.markerCurrentSeq == seq then
-		--___lazy_mark_reset__()
-	end
-
-	if ___lazy_marker___ and Lazy.markerCurrentButton and self == Lazy.markerCurrentButton then
+	if Lazy.markerCurrentButton and self == Lazy.markerCurrentButton then
 		Lazy.markerCurrentButton = nil;
 	end
+
 	local item = Lazy.buttons[self]
 	if item then
 		if not item.clicked then
@@ -355,9 +111,6 @@ local function LazyMarker_PreClick(self, button)
 		end
 		Lazy.buttons[self] = nil
 	end
-end
-
-function Lazy:nop()
 end
 
 function Lazy:MarkerRegisterActions(actions)
@@ -399,9 +152,6 @@ function Lazy:MarkerRegisterActions(actions)
 
 			local preclick
 			if enabled then
-				--if not text then
-				--	text = string.format("/CAST [target=%s] %s", k, name)
-				--end
 				if not key then
 					key = keys[kindex]
 					index = kindex
@@ -419,12 +169,10 @@ function Lazy:MarkerRegisterActions(actions)
 				if text then
 					button:SetAttribute("type", "macro")
 					button:SetAttribute("macrotext", text)
-					--Lazy:debug("bind[" .. k .. "]: " .. text .. " to " .. key)
 				else
 					button:SetAttribute("type", "spell")
 					button:SetAttribute("spell", name)
 					button:SetAttribute("unit", k)
-					--Lazy:debug("bind[" .. k .. "]: " .. name .. " to " .. key)
 				end
 				if preclick then
 					button:SetScript("PreClick", LazyMarker_PreClick)
@@ -441,119 +189,29 @@ function Lazy:MarkerRegisterActions(actions)
 			end
 		end
 	end
-
-	button = CreateFrame("Button", "LazyActionButton__nop", UIParent, "SecureActionButtonTemplate")
-	button:Hide()
-	button:SetAttribute("type", "macro")
-	button:SetAttribute("macrotext", "/script Lazy:nop()")
-	nop_key_index = kindex
-	key = keys[kindex]
-	SetBinding(key)
-	SetBindingClick(key, "LazyActionButton__nop");
-
-	-- if not mount_button then
-	-- 	mount_button = CreateFrame("Button", "LazyActionButton__mount", UIParent, "SecureActionButtonTemplate")
-	-- 	mount_button:Hide()
-	-- end
-
-	-- Lazy:UpdateMount()
 end
 
 
-function Lazy:QueueReset()
-	self.queue_i = 1
-	self.queue_c = 0
-end
-
-function Lazy:InitCheck()
-	self.spells = {}
-	self.targets = {
-		player = LazyUnit:new("player"),
-		target = LazyUnit:new("target"),
-		mouseover = LazyUnit:new("mouseover"),
-	};
-	self.player = self.targets["player"];
-	self.target = self.targets["target"];
-	self.mouseover = self.targets["mouseover"];
-
-	self.queue = {}
-	self:QueueReset()
-end
-
-function Lazy:Add(str)
-	self.queue_c = self.queue_c + 1
-	self.queue[self.queue_c] = str
-end
-
-function Lazy:StartCheck()
-	if self.Checked then
+function Lazy:Start(func)
+	if self.callback then
 		return
 	end
-	self:QueueReset()
+	self.callback = func
 
-	self.Checked = true
-
-	if Lazy.Mod.StartCheck then
-		Lazy.Mod:StartCheck();
-	end
-end 
-
-function Lazy:StopCheck()
-	self:QueueReset()
-
-	if not self.Checked then
-		return
-	end
-    Lazy.Checked = false
-	if Lazy.Mod.StopCheck then
-		Lazy.Mod:StopCheck();
+	if self.player.OnStart then
+		self.player:OnStart();
 	end
 end 
 
 function Lazy:Stop()
-	return self:StopCheck()
-end
-
-function Lazy:DoCheck()
-	Lazy.now = GetTime();
-
-	local spell, displayName, icon, startTime, endTime, isTradeSkill, castID, notInterruptible = CastingInfo("player")
-	if spell then 
+	if not self.callback then
 		return
 	end
-
-	if (self.casting) then
-		if (Lazy.now > self.endTime) then
-			self.casting = nil;
-            return;
-        end
-		return;
-	end 
-
-	if self.queue_i <= self.queue_c then
-		if self.Mod.Perform(self.queue[self.queue_i]) then
-			self.queue_i = self.queue_i + 1
-		end
-		return
-	end
-
-	if self.Checked then
-		local target = self.targets["target"];
-		if not target:IsHarm() then
-			Lazy:StopCheck();
-			return;
-		end
-		target:UpdateAura();
-		self.player:UpdateAura();
-
-		if self.Mod.DoCheck then
-		    if self.Mod:DoCheck(target) then
-				Lazy:StopCheck();
-			end
-		end
+    self.callback = nil
+	if self.player.OnStop then
+		self.player:OnStop();
 	end
 end 
-
 
 function Lazy:GetSpell(spellName) 
 	local spell = self.spells[spellName];
@@ -564,7 +222,6 @@ function Lazy:GetSpell(spellName)
 	return spell;
 end
 
---
 function Lazy:Mark(target, spell, check, uname)
 	local prefix = target.name;
 	local s = self.actions[prefix .. spell]
@@ -588,73 +245,65 @@ function Lazy:Mark(target, spell, check, uname)
 			end
 		end
 	end
-	
-	local t = GetTime()
+
 	if self.markerCurrentButton then
-		if prefix == self.markerCurrentTarget and t - self.markerCurrentButtonTime < 0.5 then
+		if prefix == self.markerCurrentTarget and self.now - self.markerCurrentButtonTime < 0.5 then
 			return true
 		end
 	end
-	
-	seq = seq + 1;
+
+	Lazy.markerSeq = Lazy.markerSeq + 1;
 	self.markerCurrentButton = s.button
-	self.markerCurrentButtonTime = t;
+	self.markerCurrentButtonTime = self.now;
 	self.markerCurrentTarget = prefix;
-	self.markerCurrentSeq = seq;
+	self.markerCurrentSeq = Lazy.markerSeq;
 
-    if self.db.profile.showMarkerWindow then
-        if not uname then
-            uname = UnitName(prefix)
-            if not uname then
-                return false
-            end
-        end
-
-        if not self.markerQueue[self.markerTail] then
-	    	self.markerQueue[self.markerTail] = {}
-	    end
-	    self.markerQueue[self.markerTail].text = spell.name .. "=>" .. uname
-	    self.markerQueue[self.markerTail].clicked = false
-		self.markerQueue[self.markerTail].markTime = t
-	    self.buttons[s.button] = self.markerQueue[self.markerTail]
-	
-	    self.markerTail = self:MarkerQueueInc(self.markerTail)
-	    if self.markerTail == self.markerHead then
-		    self.markerHead = self:MarkerQueueInc(self.markerHead)
-	    end
-		self:MarkerFillContent()
+	if not uname then
+		uname = UnitName(prefix)
+		if not uname then
+			return
+		end
 	end
 
-	nop_time = GetTime()
+	if not self.markerQueue[self.markerTail] then
+		self.markerQueue[self.markerTail] = {}
+	end
+	self.markerQueue[self.markerTail].text = spell.name .. "=>" .. uname
+	self.markerQueue[self.markerTail].clicked = false
+	self.markerQueue[self.markerTail].markTime = self.now
+	self.buttons[s.button] = self.markerQueue[self.markerTail]
+
+	self.markerTail = self:MarkerQueueInc(self.markerTail)
+	if self.markerTail == self.markerHead then
+		self.markerHead = self:MarkerQueueInc(self.markerHead)
+	end
+	self:MarkerFillContent()
 	Lazy:mark0(s.index)
 	return true
 end
 
-function Lazy:UpdateMount()
-	if not mount_button then
-		return
+function Lazy:CMark(target, spell, time)
+	if not time then
+		time = 0
 	end
 
-	local s
-
-	if not Lazy.landMount and not Lazy.flyMount then
-		s = ""
-	elseif not Lazy.landMount then
-		s = string.format("/use [flyable,nocombat] %s", Lazy.flyMount)
-	elseif not Lazy.flyMount then
-		s = string.format("/use [outdoors,nocombat] %s", Lazy.landMount)
+	if target:IsHarm() then
+		if target:GetDebuff(spell) <= time then
+			if Lazy:Mark(target, spell, true) then
+				return true
+			end
+		end
 	else
-		s = string.format("/use [flyable,nocombat] %s; [outdoors,nocombat] %s", Lazy.flyMount, Lazy.landMount)
+		if target:GetBuff(spell) <= time then
+			if Lazy:Mark(target, spell, true) then
+				return true
+			end
+		end
 	end
-
-	mount_button:SetAttribute("type", "macro")
-	mount_button:SetAttribute("macrotext", s)
-    SetBinding("F5")
-    SetBindingClick("F5", "LazyActionButton__mount");
 end
 
 function Lazy:START_AUTOREPEAT_SPELL()
-	Lazy:debug("START_AUTOREPEAT_SPELL")
+	--Lazy:debug("START_AUTOREPEAT_SPELL")
 end 
 
 function Lazy:PLAYER_REGEN_DISABLED()
@@ -665,25 +314,22 @@ end
 function Lazy:PLAYER_REGEN_ENABLED()
     --Lazy:debug("leave combat")
 	self.combating = false;
-    Lazy:StopCheck()
+    Lazy:Stop()
 end
 
 function Lazy:PLAYER_TARGET_CHANGED()
     --Lazy:debug("target changed")
-    Lazy:StopCheck()
+    Lazy:Stop()
 end
 
 function Lazy:UNIT_SPELLCAST_CHANNEL_START(self, unit, spellName, spellRank, spellCastIndex)
 	--Lazy:debug("UNIT_SPELLCAST_CHANNEL_START")
     if (unit ~= 'player') then return end
-    auto_fish = false
 end
 
 function Lazy:UNIT_SPELLCAST_CHANNEL_STOP(self, unit, spellName, spellRank, spellCastIndex)
 	--Lazy:debug("UNIT_SPELLCAST_CHANNEL_START")
     if (unit ~= 'player') then return end
-    if (spellName ~= L["钓鱼"]) then return end
-    auto_fish = true
 end
 
 function Lazy:UNIT_SPELLCAST_SENT(event, unit, spell, rank, target)
@@ -750,26 +396,69 @@ function Lazy:UNIT_SPELLCAST_INTERRUPTED(event, unit)
     self.fadeOut = true;
 end
 
-function Lazy:DoFish()
-	auto_fish = false
-	if not IsShiftKeyDown() then
-	   	Lazy:Mark("player", L["钓鱼"], false)
+function Lazy:CreateTimer()
+	if not self.player then
+		return
+	end
+
+	self:HookScript(self.markerFrame, "OnUpdate", "OnUpdate")
+	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
+	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
+	self:RegisterEvent("UNIT_SPELLCAST_START")
+	self:RegisterEvent("UNIT_SPELLCAST_STOP")
+	self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+	self:RegisterEvent("UNIT_SPELLCAST_FAILED")
+	self:RegisterEvent("UNIT_SPELLCAST_DELAYED")
+	self:RegisterEvent("UNIT_SPELLCAST_SENT")
+	self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+	self:RegisterEvent("PLAYER_REGEN_ENABLED")
+	self:RegisterEvent("PLAYER_REGEN_DISABLED")
+	self:RegisterEvent("PLAYER_TARGET_CHANGED")
+	self:RegisterEvent("START_AUTOREPEAT_SPELL")
+
+	self.spells = {}
+	self.targets = {
+		player = self.player,
+		target = LazyUnit:new("target"),
+		mouseover = LazyUnit:new("mouseover"),
+	};
+	self.target = self.targets["target"];
+	self.mouseover = self.targets["mouseover"];
+
+	self.player:OnInitialize()
+end
+
+function Lazy:CreatePlayer(class)
+	if select(2, UnitClass("player")) == class then
+		self.player = LazyUnit:new("player")
+		return self.player
 	end
 end
 
-function Lazy:MarkerTimer()
-	local t = GetTime()
-
-	if auto_fish then
-		Lazy:DoFish()
-	end
-
-	if t - 	nop_time > 120 then
-		--Lazy:mark(nop_key_index)
-		nop_time = t
-	end
-
-	Lazy:DoCheck();
-	self:ScheduleTimer("MarkerTimer", 0.2);
+function Lazy:OnUpdate()
+	self:Update()
 end
 
+function Lazy:Update(func)
+	self.now = GetTime();
+	self.player.now = self.now
+
+	if self.callback or func then
+		local spell, displayName, icon, startTime, endTime, isTradeSkill, castID, notInterruptible = CastingInfo("player")
+		if spell then 
+			return
+		end
+
+		for k, v in pairs(self.targets) do
+			v:UpdateAura()
+		end
+
+		if func then
+			func()
+		elseif self.callback then
+		    if self.callback() then
+				Lazy:Stop();
+			end
+		end
+	end
+end
