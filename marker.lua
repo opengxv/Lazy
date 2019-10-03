@@ -97,6 +97,9 @@ local keys = {
 	"SHIFT-CTRL-0",						-- 112
 }
 
+local SetBinding = _G.SetBinding
+local SetBindingClick = _G.SetBindingClick
+
 local function LazyMarker_PreClick(self, button)
 	if Lazy.markerCurrentButton and self == Lazy.markerCurrentButton then
 		Lazy.markerCurrentButton = nil;
@@ -178,7 +181,7 @@ function Lazy:MarkerRegisterActions(actions)
 					button:SetScript("PreClick", LazyMarker_PreClick)
 				end
 				SetBinding(key)
-				SetBindingClick(key, bname);
+				SetBindingClick(key, bname, 1);
 				self.actions[aname] = {}
 				self.actions[aname].button = button
 				self.actions[aname].index = index
@@ -191,6 +194,12 @@ function Lazy:MarkerRegisterActions(actions)
 	end
 end
 
+function Lazy:Rebinding()
+	for k, v in pairs(self.actions) do
+		SetBinding(v.key)
+		SetBindingClick(v.key, v.button)
+	end
+end
 
 function Lazy:Start(func)
 	if self.callback then
@@ -278,7 +287,8 @@ function Lazy:Mark(target, spell, check, uname)
 		self.markerHead = self:MarkerQueueInc(self.markerHead)
 	end
 	self:MarkerFillContent()
-	Lazy:mark0(s.index)
+	self:mark0(s.index)
+	self.gcd_time = self.now + 0.5
 	return true
 end
 
@@ -303,97 +313,61 @@ function Lazy:CMark(target, spell, time)
 end
 
 function Lazy:START_AUTOREPEAT_SPELL()
-	--Lazy:debug("START_AUTOREPEAT_SPELL")
 end 
 
 function Lazy:PLAYER_REGEN_DISABLED()
-    --Lazy:debug("leave combat")
 	self.combating = true;
 end
 
 function Lazy:PLAYER_REGEN_ENABLED()
-    --Lazy:debug("leave combat")
 	self.combating = false;
     Lazy:Stop()
 end
 
 function Lazy:PLAYER_TARGET_CHANGED()
-    --Lazy:debug("target changed")
     Lazy:Stop()
 end
 
 function Lazy:UNIT_SPELLCAST_CHANNEL_START(self, unit, spellName, spellRank, spellCastIndex)
-	--Lazy:debug("UNIT_SPELLCAST_CHANNEL_START")
     if (unit ~= 'player') then return end
 end
 
 function Lazy:UNIT_SPELLCAST_CHANNEL_STOP(self, unit, spellName, spellRank, spellCastIndex)
-	--Lazy:debug("UNIT_SPELLCAST_CHANNEL_START")
     if (unit ~= 'player') then return end
 end
 
 function Lazy:UNIT_SPELLCAST_SENT(event, unit, spell, rank, target)
-    if (unit ~= 'player') then return end
-	--Lazy:debug("UNIT_SPELLCAST_SENT ")
-	self.sendTime = GetTime()
-	self.endTime = self.sendTime + 1
-	self.casting = true
+	if (unit ~= 'player') then return end
+	self.gcd_time = GetTime() + 1
+	-- lazy_debug("UNIT_SPELLCAST_SENT")
 end
 
 function Lazy:UNIT_SPELLCAST_START(event, unit)
-    if (unit ~= 'player') then return end
-	--Lazy:debug("UNIT_SPELLCAST_START")
-    local spellName, _, _,startTime, endTime = CastingInfo(unit);
-    self.startTime = startTime / 1000;
-    self.endTime = endTime / 1000;
-    self.casting = true;
-    self.spellName = spellName;
-
-    if not self.sendTime then return end
+	if (unit ~= 'player') then return end
+	-- lazy_debug("UNIT_SPELLCAST_START")
 end
 
 function Lazy:UNIT_SPELLCAST_SUCCEEDED(event, unit)
-    if (unit ~= 'player') then return end
-	--Lazy:debug("UNIT_SPELLCAST_SUCCEEDED ")
+	if (unit ~= 'player') then return end
+	-- lazy_debug("UNIT_SPELLCAST_SUCCEEDED")
 end
 
 function Lazy:UNIT_SPELLCAST_STOP(event, unit)
 	if unit ~="player" then return end
-	--Lazy:debug("UNIT_SPELLCAST_STOP")
-	if self.casting then
-		self.targetName = nil;
-		self.casting = nil;
-	end
+	-- lazy_debug("UNIT_SPELLCAST_STOP")
 end
 
 function Lazy:UNIT_SPELLCAST_FAILED(event, unit)
-    if unit ~= "player" then return end
-	--Lazy:debug("UNIT_SPELLCAST_FAILED")
-    self.targetName = nil;
-    self.casting = nil;
+	if unit ~= "player" then return end
+	-- lazy_debug("UNIT_SPELLCAST_FAILED")
 end
 
 function Lazy:UNIT_SPELLCAST_DELAYED(event, unit)
     if unit ~= "player" then return end
-	--Lazy:debug("UNIT_SPELLCAST_DELAYED")
-    local oldStart = self.startTime;
-    local spellName,_,text,startTime,endTime = CastingInfo(unit);
-    if not startTime then self.delay = 0 return end
-
-    startTime = startTime/1000;
-    endTime = endTime/1000;
-    self.startTime = startTime;
-    self.endTime = endTime;
-    self.spellName = spellName;
 end
 
 function Lazy:UNIT_SPELLCAST_INTERRUPTED(event, unit)
     if unit ~= 'player' then return end
-	--Lazy:debug("UNIT_SPELLCAST_INTERRUPTED")
-    self.targetName = nil;
-    self.casting = nil;
-    self.channeling = nil;
-    self.fadeOut = true;
 end
 
 function Lazy:CreateTimer()
@@ -425,6 +399,8 @@ function Lazy:CreateTimer()
 	self.target = self.targets["target"];
 	self.mouseover = self.targets["mouseover"];
 
+	self.gcd_time = 0
+
 	self.player:OnInitialize()
 end
 
@@ -444,6 +420,9 @@ function Lazy:Update(func)
 	self.player.now = self.now
 
 	if self.callback or func then
+		if self.now < self.gcd_time then
+			return
+		end
 		local spell, displayName, icon, startTime, endTime, isTradeSkill, castID, notInterruptible = CastingInfo("player")
 		if spell then 
 			return
